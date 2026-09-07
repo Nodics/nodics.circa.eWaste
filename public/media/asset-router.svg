@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" role="img" aria-label="Used network router asset">
+  <rect width="560" height="360" rx="26" fill="#f5f2e8"/>
+  <rect x="116" y="158" width="328" height="98" rx="20" fill="#242629"/>
+  <path d="M178 158l-34-86M382 158l34-86" stroke="#242629" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="184" cy="208" r="11" fill="#16883f"/>
+  <circle cx="226" cy="208" r="11" fill="#f5b700"/>
+  <path d="M274 208h98" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+</svg>
