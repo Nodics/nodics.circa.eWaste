@@ -1,6 +1,6 @@
 # nodics.circa.eWaste
 
-Circa eWaste is the customer-facing e-waste accelerator application for Nodics EXP.
+Circa is the customer frontend for Nodics EXP. It consumes the single eWaste domain accelerator and a customer backend module for site composition.
 
 ## Boundaries
 

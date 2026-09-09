@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {chromium} from '@playwright/test';
+const browser=await chromium.launch();
+const context=await browser.newContext({viewport:{width:1440,height:1000}});
+const page=await context.newPage();
+const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+try {
+ await page.goto(process.env.CIRCA_URL || 'http://localhost:3600');
+ await page.getByRole('heading',{name:'Your old tech. A new kind of value.'}).waitFor();
+ await page.waitForFunction(()=>[...document.querySelectorAll('.hero-image,.brand img')].every(image=>image.complete&&image.naturalWidth>0));
+ assert.match(await page.locator('.hero-image').getAttribute('src'),/\/nodics\/media\/v0\/content\//);
+ await page.getByRole('button',{name:'Show banner 2',exact:true}).click();
+ await page.getByRole('heading',{name:'Good things start with you.'}).waitFor();
+ await page.getByRole('button',{name:'Show banner 3',exact:true}).click();
+ await page.getByRole('heading',{name:'Less waste. More possibility.'}).waitFor();
+ await page.getByRole('button',{name:'Show banner 1',exact:true}).click();
+ await page.screenshot({path:'/tmp/circa-batch/cms-desktop.png',fullPage:true});
+ await page.getByRole('link',{name:'Privacy',exact:true}).click();
+ await page.getByRole('heading',{name:'Privacy in this local sample'}).waitFor();
+ await page.reload();
+ await page.getByRole('heading',{name:'Privacy in this local sample'}).waitFor();
+ await page.getByRole('link',{name:'Terms',exact:true}).click();
+ await page.getByRole('heading',{name:'Local sample terms'}).waitFor();
+ await page.goto('http://localhost:3600');
+ await page.setViewportSize({width:390,height:844});
+ await page.getByRole('heading',{name:'Your old tech. A new kind of value.'}).waitFor();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:'/tmp/circa-batch/cms-mobile.png'});
+ await page.route('**/nodics/cms/v0/delivery/pages/resolve?**',route=>route.fulfill({status:503,body:'unavailable'}));
+ await page.reload();
+ await page.getByRole('alert').filter({hasText:'Published website content is temporarily unavailable.'}).waitFor();
+ assert.equal(await page.locator('.hero').count(),0,'An unavailable Online release cannot fall back to unpublished banners');
+ assert.deepEqual(errors,[]);
+ console.log('PASS Online CMS page composition, all banners, Media sources, policy navigation and reload, mobile layout, unavailable-release handling.');
+} catch(error){await page.screenshot({path:'/tmp/circa-batch/cms-browser-failure.png'});throw error;} finally {await browser.close();}

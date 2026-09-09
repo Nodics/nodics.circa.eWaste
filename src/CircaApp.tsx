@@ -1,841 +1,1850 @@
+import { CircaBrand as Brand } from "./CircaBrand";
+import { CustomerAuthentication } from "./CustomerAuthentication";
+import { OutcomeInbox } from './OutcomeInbox';
+import { ReviewDialog as Dialog } from "./ReviewDialog";
+import { BidComposer, BidHistory } from "./BidsPanel";
+import {
+  contentText as text,
+  contentItems as items,
+  contentStrings as strings,
+  publicMedia,
+  publishedArtwork,
+  usePublishedPage,
+  type Content,
+} from "./cms";
+import { PrivatePhoto } from "./PrivatePhoto";
+import { PurchaseHistory } from "./PurchaseHistory";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowRight,
-  BadgeCheck,
-  Camera,
+  ArrowUpRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   Coins,
-  Gift,
   Leaf,
-  LocateFixed,
-  MapPinned,
-  PackageCheck,
-  Search,
+  LogOut,
+  Menu,
+  Pause,
+  Play,
+  Recycle,
   ShieldCheck,
-  ShoppingBag,
-  Store,
-  Upload,
-  Wallet,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
-
+  Sparkles,
+  Ticket,
+  Users,
+  Wallet as WalletIcon,
+  X,
+} from "lucide-react";
 import {
-  circaExperienceComposition,
-  collectionCentres,
-  couponOffers,
-  demoCustomerId,
-  initialAssets,
-  type AssetStatus,
-  type CircularAsset,
-  type CollectionCentre,
-  type CouponOffer,
-  type Customer,
-  type WalletState,
-} from './circaExperience';
-import { NodicsSiteShell } from './NodicsSiteShell';
+  API,
+  APP_API,
+  commandKey,
+  nameOf,
+  originalRewardOf,
+  readSession,
+  restoreSession,
+  endSession,
+  request,
+  saveSession,
+  statusLabel,
+  type Account,
+  type Asset,
+  type Centre,
+  type Experience,
+  type Market,
+  type Offer,
+  type Session,
+  type Submission,
+  type Wallet,
+} from "./api";
+import { CollectionMap } from "./CollectionMap";
+import { SubmissionAssistant } from "./SubmissionAssistant";
 
-type SubmitStep =
-  | 'AUTH_REQUIRED'
-  | 'LOCATION_CHECK'
-  | 'NEARBY_CENTRES'
-  | 'EVIDENCE_CAPTURE'
-  | 'AI_SUMMARY_CONFIRM'
-  | 'UNDER_APPROVAL';
-
-function statusLabel(status: AssetStatus): string {
-  switch (status) {
-    case 'PENDING_REVIEW':
-      return 'Under approval';
-    case 'APPROVED':
-      return 'Approved';
-    case 'REJECTED':
-      return 'Rejected';
-    case 'LISTED':
-      return 'Listed for trade';
-    case 'SOLD':
-      return 'Sold';
-  }
-}
-
-function nextAssetCode(): string {
-  const suffix =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID().slice(0, 4).toUpperCase()
-      : Math.floor(Math.random() * 9000 + 1000).toString();
-  return `EWA-${suffix}`;
-}
-
-function LoginPanel({
-  compact = false,
-  onLogin,
-}: {
-  readonly compact?: boolean;
-  readonly onLogin: (customer: Customer) => void;
-}) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('Circa Customer');
-  const [email, setEmail] = useState('customer@circa.local');
-  const [password, setPassword] = useState('circa-demo');
-
-  const submit = () => {
-    const nextName = mode === 'register' ? name.trim() : 'Circa Customer';
-    onLogin({
-      id: demoCustomerId,
-      name: nextName || 'Circa Customer',
-      email: email.trim() || 'customer@circa.local',
-    });
-  };
-
+function Lines({ value }: { value: string }) {
   return (
-    <div className={compact ? 'auth-panel compact' : 'auth-panel'}>
-      <div>
-        <p className="eyebrow">{mode === 'login' ? 'Welcome back' : 'Create account'}</p>
-        <h3>{mode === 'login' ? 'Login to continue' : 'Start with three details'}</h3>
+    <>
+      {value.split("\n").map((line, index) => (
+        <span key={index}>
+          {index > 0 && <br />}
+          {line}
+        </span>
+      ))}
+    </>
+  );
+}
+function ErrorNotice({ error, retry }: { error: string; retry?: () => void }) {
+  return error ? (
+    <div className="error" role="alert">
+      {error}
+      {retry && <button onClick={retry}>Try again</button>}
+    </div>
+  ) : null;
+}
+export function Login({onClose,onLogin,sample}:{onClose:()=>void;onLogin:(session:Session)=>void|Promise<void>;sample:boolean}) {
+  const [register,setRegister]=useState(false);
+  return <Dialog title={register?"Create your Circa account":"Welcome back"} onClose={onClose}>
+    <CustomerAuthentication onLogin={onLogin} sample={sample} showTitle={false} onModeChange={setRegister}/>
+  </Dialog>;
+}
+
+function Hero({
+  onSubmit,
+  content,
+}: {
+  onSubmit: () => void;
+  content: Content;
+}) {
+  const stories = items(content, "stories");
+  const [slide, setSlide] = useState(0),
+    [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (
+      !playing ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const timer = setInterval(
+      () => setSlide((i) => (i + 1) % stories.length),
+      8000,
+    );
+    return () => clearInterval(timer);
+  }, [playing, stories.length]);
+  const story = stories[slide % stories.length];
+  if (!story) return null;
+  return (
+    <section className="hero" aria-label="Discover Circa">
+      <img
+        key={slide}
+        className="hero-image"
+        src={publicMedia(text(story, "mediaCode"))}
+        alt={text(story, "alt")}
+        fetchPriority="high"
+      />
+      <div className="hero-shade" />
+      <div className="hero-inner">
+        <span className="eyebrow">
+          <span />
+          {text(story, "eyebrow")}
+        </span>
+        <h1>
+          <Lines value={text(story, "title")} />
+        </h1>
+        <p>{text(story, "body")}</p>
+        <div className="hero-actions">
+          {story.action === "SHOP" ? (
+            <a className="primary" href="/shop">
+              {text(story, "cta")}
+              <ArrowUpRight size={18} />
+            </a>
+          ) : (
+            <button className="primary" onClick={onSubmit}>
+              {text(story, "cta")}
+              <ArrowUpRight size={18} />
+            </button>
+          )}
+          <a className="hero-secondary" href="/#centres">
+            {text(content, "secondaryLabel")} <ArrowRight size={18} />
+          </a>
+        </div>
+        <div className="hero-foot">
+          <span>
+            <ShieldCheck size={17} /> {text(content, "assurance")}
+          </span>
+          <div className="slide-controls">
+            <button
+              aria-label="Previous banner"
+              onClick={() =>
+                setSlide((slide + stories.length - 1) % stories.length)
+              }
+            >
+              <ChevronLeft size={17} />
+            </button>
+            {stories.map((_, i) => (
+              <button
+                key={i}
+                aria-label={`Show banner ${i + 1}`}
+                aria-pressed={slide === i}
+                className={slide === i ? "active" : ""}
+                onClick={() => setSlide(i)}
+              >
+                <span />
+              </button>
+            ))}
+            <button
+              aria-label="Next banner"
+              onClick={() => setSlide((slide + 1) % stories.length)}
+            >
+              <ChevronRight size={17} />
+            </button>
+            <button
+              aria-label={playing ? "Pause banners" : "Play banners"}
+              onClick={() => setPlaying(!playing)}
+            >
+              {playing ? <Pause size={15} /> : <Play size={15} />}
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="segmented" role="tablist" aria-label="Authentication mode">
-        <button
-          className={mode === 'login' ? 'active' : ''}
-          onClick={() => setMode('login')}
-          type="button"
-        >
-          Login
-        </button>
-        <button
-          className={mode === 'register' ? 'active' : ''}
-          onClick={() => setMode('register')}
-          type="button"
-        >
-          New customer
-        </button>
+    </section>
+  );
+}
+function WalletBand({
+  wallet,
+  error,
+}: {
+  wallet: Wallet | null;
+  error: string;
+}) {
+  const balance = (code: string) =>
+    wallet?.balances.find((b) => b.rewardTypeCode === code)?.available || "0";
+  return (
+    <div className="wallet-band">
+      <div className="container">
+        <span className="wallet-greeting">Your circular value</span>
+        {error ? (
+          <span>Wallet unavailable</span>
+        ) : wallet ? (
+          <>
+            <span className="points">
+              <Coins size={19} />
+              <strong>{balance("points")}</strong> reward points
+            </span>
+            <span className="carbon">
+              <Leaf size={19} />
+              <strong>{balance("circaCarbon")}</strong> illustrative carbon
+              units
+            </span>
+          </>
+        ) : (
+          <span>Loading your wallet…</span>
+        )}
+        <a href="/wallet">
+          View wallet <ArrowRight size={16} />
+        </a>
       </div>
-      {mode === 'register' ? (
-        <label>
-          Name
-          <input value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-      ) : null}
-      <label>
-        Email
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </label>
-      <label>
-        Password
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
-      <button
-        aria-label={mode === 'register' ? 'Register and login customer' : 'Login customer'}
-        className="primary-action"
-        onClick={submit}
-        type="button"
-      >
-        {mode === 'register' ? 'Register and login' : 'Login'}
-      </button>
     </div>
   );
 }
-
-function SubmitWastePopup({
-  customer,
-  open,
-  onClose,
-  onLogin,
-  onSubmitAsset,
+function Solution({
+  onSubmit,
+  content,
 }: {
-  readonly customer: Customer | undefined;
-  readonly open: boolean;
-  readonly onClose: () => void;
-  readonly onLogin: (customer: Customer) => void;
-  readonly onSubmitAsset: (asset: CircularAsset) => void;
+  onSubmit: () => void;
+  content: Content;
 }) {
-  const [step, setStep] = useState<SubmitStep>('AUTH_REQUIRED');
-  const [selectedCentre, setSelectedCentre] = useState<CollectionCentre>(collectionCentres[0]);
-  const [imagePreview, setImagePreview] = useState('/media/asset-phone.svg');
-  const [isAnalyzing, setAnalyzing] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
-
-  if (!open) return null;
-
-  const activeStep = customer
-    ? step === 'AUTH_REQUIRED'
-      ? 'LOCATION_CHECK'
-      : step
-    : 'AUTH_REQUIRED';
-
-  const analyze = () => {
-    setAnalyzing(true);
-    window.setTimeout(() => {
-      setAnalyzing(false);
-      setStep('AI_SUMMARY_CONFIRM');
-    }, 450);
-  };
-
-  const submitForApproval = () => {
-    onSubmitAsset({
-      id: nextAssetCode(),
-      name: 'AI named smartphone evidence',
-      type: 'Smartphone',
-      category: 'Small electronics',
-      status: 'PENDING_REVIEW',
-      ownerId: customer?.id ?? demoCustomerId,
-      ownerName: customer?.name ?? 'Circa Customer',
-      centre: selectedCentre.name,
-      submittedAt: new Date().toISOString().slice(0, 10),
-      rewardEarned: 12,
-      carbonCredits: 14,
-      imageUrl: imagePreview,
-    });
-    setStep('UNDER_APPROVAL');
-  };
-
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="submission-modal" role="dialog" aria-modal="true" aria-label="Submit eWaste">
-        <div className="modal-header">
+    <section className="solution section container" id="how-it-works">
+      <div className="solution-heading">
+        <div>
+          <span className="eyebrow">{text(content, "eyebrow")}</span>
+          <h2>
+            <Lines value={text(content, "title")} />
+          </h2>
+        </div>
+        <p>{text(content, "body")}</p>
+      </div>
+      <div className="benefit-grid">
+        {items(content, "benefits").map((benefit, index) => {
+          const Icon = [Recycle, Users, Leaf][index % 3];
+          return (
+            <article className="benefit" key={index}>
+              <span className="benefit-icon">
+                <Icon size={24} />
+              </span>
+              <h3>{text(benefit, "title")}</h3>
+              <p>{text(benefit, "body")}</p>
+            </article>
+          );
+        })}
+      </div>
+      <div className="process-strip">
+        <span className="process-label">Your next chapter</span>
+        {strings(content, "steps").map((v, i) => (
+          <span key={v}>
+            <b>0{i + 1}</b>
+            {v}
+            {i < 3 && <ChevronRight size={14} />}
+          </span>
+        ))}
+        <button className="text-button" onClick={onSubmit}>
+          Let’s begin <ArrowUpRight size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+function OfferCard({ offer }: { offer: Offer }) {
+  return (
+    <article
+      className={`offer-card ${offer.kind === "COUPON" ? "coupon-card" : ""}`}
+    >
+      <a
+        href={`/${offer.kind === "ASSET" ? "shop" : "coupons"}/${encodeURIComponent(offer.code)}`}
+        className="offer-image"
+      >
+        <img
+          src={publishedArtwork(offer.imageUrl || "/media/asset-laptop.svg")}
+          alt={offer.name}
+          loading="lazy"
+        />
+        <span className="badge">
+          {offer.kind === "ASSET" ? (
+            <>
+              <ShieldCheck size={12} />
+              Verified asset
+            </>
+          ) : (
+            "Partner offer"
+          )}
+        </span>
+      </a>
+      <div className="offer-body">
+        <small>{offer.issuer || "Circa collection"}</small>
+        <h3>
+          <a
+            href={`/${offer.kind === "ASSET" ? "shop" : "coupons"}/${encodeURIComponent(offer.code)}`}
+          >
+            {offer.name}
+          </a>
+        </h3>
+        <p>
+          {offer.kind === "ASSET" ? (
+            <>
+              <Leaf size={14} />
+              {offer.carbonUnits ?? 0} illustrative carbon units
+            </>
+          ) : offer.expiresAt ? (
+            `Valid until ${new Date(offer.expiresAt).toLocaleDateString("en-GB")}`
+          ) : (
+            "Claim with the issuing partner"
+          )}
+        </p>
+        <div className="offer-price">
+          <span>
+            <Coins size={16} />
+            <strong>{offer.rewardPrice}</strong> points
+          </span>
+          <a
+            aria-label={`View ${offer.name}`}
+            href={`/${offer.kind === "ASSET" ? "shop" : "coupons"}/${encodeURIComponent(offer.code)}`}
+          >
+            <ArrowUpRight size={20} />
+          </a>
+        </div>
+      </div>
+    </article>
+  );
+}
+function Offers({
+  kind,
+  offers,
+  loading,
+  error,
+  content,
+}: {
+  kind: "ASSET" | "COUPON";
+  content: Content;
+  offers: Offer[];
+  loading: boolean;
+  error: string;
+}) {
+  const rail = useRef<HTMLDivElement>(null);
+  const assets = kind === "ASSET";
+  return (
+    <section
+      className={`section ${assets ? "assets-section" : "coupons-section"}`}
+      id={assets ? "assets" : "offers"}
+    >
+      <div className="container">
+        <div className="section-heading">
           <div>
-            <p className="eyebrow">AI assisted submission</p>
-            <h2>Submit eWaste</h2>
+            <span className="eyebrow">{text(content, "eyebrow")}</span>
+            <h2>{text(content, "title")}</h2>
           </div>
-          <button className="icon-button" onClick={onClose} type="button" aria-label="Close">
-            x
-          </button>
+          <a className="text-link" href={assets ? "/shop" : "/coupons"}>
+            View all {assets ? "assets" : "coupons"} <ArrowUpRight size={18} />
+          </a>
         </div>
-
-        <div className="stepper" aria-label="Submission progress">
-          {['Login', 'Location', 'Photo', 'Confirm'].map((label) => (
-            <span key={label}>{label}</span>
-          ))}
+        <div className="carousel-header">
+          <p>{text(content, "body")}</p>
+          <div>
+            <button
+              className="icon-button"
+              aria-label={`Previous ${assets ? "assets" : "coupons"}`}
+              onClick={() =>
+                rail.current?.scrollBy({ left: -320, behavior: "smooth" })
+              }
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label={`Next ${assets ? "assets" : "coupons"}`}
+              onClick={() =>
+                rail.current?.scrollBy({ left: 320, behavior: "smooth" })
+              }
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
-
-        {activeStep === 'AUTH_REQUIRED' ? (
-          <LoginPanel
-            compact
-            onLogin={(nextCustomer) => {
-              onLogin(nextCustomer);
-              setStep('LOCATION_CHECK');
-            }}
-          />
-        ) : null}
-
-        {activeStep === 'LOCATION_CHECK' ? (
-          <div className="modal-section">
-            <LocateFixed size={34} />
-            <h3>Share location to find nearby collection centres</h3>
-            <p>
-              Circa checks proximity against configured collection centres before
-              collecting evidence, so the physical handoff remains operationally valid.
-            </p>
-            <div className="action-row">
-              <button
-                className="primary-action"
-                onClick={() => setStep('NEARBY_CENTRES')}
-                type="button"
-              >
-                Share location
-              </button>
-              <button
-                className="secondary-action"
-                onClick={() => setStep('NEARBY_CENTRES')}
-                type="button"
-              >
-                Use sample location
+        <ErrorNotice error={error} />
+        {loading ? (
+          <div className="loading-cards" role="status">
+            Loading {assets ? "assets" : "offers"}…
+          </div>
+        ) : (
+          <div className="offer-rail" ref={rail}>
+            {offers.map((offer) => (
+              <OfferCard key={offer.code} offer={offer} />
+            ))}
+            {!offers.length && !error && (
+              <p className="empty">
+                New {assets ? "assets" : "offers"} will appear here when they
+                are available.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+function Contact({
+  session,
+  content,
+}: {
+  session: Session | null;
+  content: Content;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [receipt, setReceipt] = useState(""),
+    key = useRef(commandKey());
+  return (
+    <section className="contact section container" id="contact">
+      <div>
+        <span className="eyebrow">{text(content, "eyebrow")}</span>
+        <h2>
+          <Lines value={text(content, "title")} />
+        </h2>
+        <p>{text(content, "body")}</p>
+        <div className="contact-note">
+          <MessageIcon />
+          <span>
+            One conversation can open up
+            <br />a whole new possibility.
+          </span>
+        </div>
+      </div>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (busy || receipt) return;
+          const fields = Object.fromEntries(new FormData(e.currentTarget));
+          setBusy(true);
+          setError("");
+          try {
+            const r = await request<{ code: string }>(
+              `${APP_API}/contact`,
+              session,
+              { ...fields, idempotencyKey: key.current },
+            );
+            setReceipt(r.code);
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Your message could not be sent. Please retry.",
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {receipt ? (
+          <div className="contact-receipt" role="status">
+            <Check size={30} />
+            <h3>We’ve received your message.</h3>
+            <p>Keep this reference: {receipt}</p>
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => {
+                setReceipt("");
+                key.current = commandKey();
+              }}
+            >
+              Send another message
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="form-grid">
+              <label>
+                Your name
+                <input
+                  name="name"
+                  required
+                  maxLength={120}
+                  autoComplete="name"
+                />
+              </label>
+              <label>
+                Email address
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={session?.loginId || ""}
+                  key={session?.loginId}
+                  autoComplete="email"
+                />
+              </label>
+            </div>
+            <label>
+              Subject
+              <input name="subject" required maxLength={180} />
+            </label>
+            <label>
+              Your message
+              <textarea
+                name="message"
+                required
+                minLength={10}
+                maxLength={3000}
+                rows={4}
+              />
+            </label>
+            <ErrorNotice error={error} />
+            <div className="contact-submit">
+              <span>We’ll use your details to respond to this enquiry.</span>
+              <button className="primary" disabled={busy}>
+                {busy ? "Sending…" : "Send message"}
+                <ArrowUpRight size={16} />
               </button>
             </div>
-          </div>
-        ) : null}
-
-        {activeStep === 'NEARBY_CENTRES' ? (
-          <div className="modal-section">
-            <h3>Nearby collection centres</h3>
-            <p>Select the centre where the item can be received and verified.</p>
-            <div className="centre-list">
-              {collectionCentres.map((centre) => (
+          </>
+        )}
+      </form>
+    </section>
+  );
+}
+function MessageIcon() {
+  return (
+    <span className="contact-icon">
+      <Sparkles size={28} />
+    </span>
+  );
+}
+function AccountPage({
+  account,
+  error,
+  onResume,
+  onRefresh,
+  session,
+}: {
+  session: Session;
+  account: Account | null;
+  error: string;
+  onResume: (code: string) => void;
+  onRefresh: () => void;
+}) {
+  const [filter, setFilter] = useState("ALL"),
+    [detail, setDetail] = useState<Submission | null>(null),
+    [tab, setTab] = useState("submissions");
+  const submitted =
+    account?.submissions.filter((s) =>
+      ["APPROVED", "SUBMITTED", "REJECTED", "UNDER_REVIEW"].includes(
+        s.submissionStatus,
+      ),
+    ) || [];
+  return (
+    <main className="container account-page">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">Your circular journey</span>
+          <h1>My Account</h1>
+          <p>{account?.customer.loginId}</p>
+        </div>
+        <a className="secondary" href="/wallet">
+          <WalletIcon size={17} /> Open wallet
+        </a>
+      </div>
+      <ErrorNotice error={error} retry={onRefresh} />
+      {!account && !error ? (
+        <p role="status">Loading your account…</p>
+      ) : (
+        account && (
+          <>
+            <OutcomeInbox session={session} />
+            <div className="account-stats">
+              {[
+                ["Submitted", submitted.length],
+                [
+                  "Approved",
+                  submitted.filter((s) => s.submissionStatus === "APPROVED")
+                    .length,
+                ],
+                [
+                  "Awaiting approval",
+                  submitted.filter((s) =>
+                    ["SUBMITTED", "UNDER_REVIEW"].includes(s.submissionStatus),
+                  ).length,
+                ],
+                [
+                  "Rejected",
+                  submitted.filter((s) => s.submissionStatus === "REJECTED")
+                    .length,
+                ],
+              ].map(([label, total]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{total}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="account-tabs">
+              {["submissions", "assets", "activity"].map((v) => (
                 <button
-                  className={centre.id === selectedCentre.id ? 'centre-card selected' : 'centre-card'}
-                  key={centre.id}
-                  onClick={() => setSelectedCentre(centre)}
-                  type="button"
+                  className={tab === v ? "active" : ""}
+                  onClick={() => setTab(v)}
+                  key={v}
                 >
-                  <strong>{centre.name}</strong>
-                  <span>{centre.address}</span>
-                  <small>
-                    {centre.distanceKm.toFixed(1)} km - {centre.hours}
-                  </small>
+                  {v === "assets"
+                    ? "Owned assets"
+                    : v === "activity"
+                      ? "Ownership activity"
+                      : "Submissions"}
                 </button>
               ))}
             </div>
-            {mapOpen ? (
-              <div className="mini-map" aria-label="Collection centre map preview">
-                {collectionCentres.map((centre, index) => (
-                  <span
-                    className={centre.id === selectedCentre.id ? 'pin active' : 'pin'}
-                    key={centre.id}
-                    style={{
-                      left: `${String(18 + index * 28)}%`,
-                      top: `${String(56 - index * 14)}%`,
-                    }}
+            {tab === "submissions" ? (
+              <>
+                <div className="filter-toolbar">
+                  <h2>Your submissions</h2>
+                  <label>
+                    Status
+                    <select
+                      aria-label="Submission status filter"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                    >
+                      {[
+                        "ALL",
+                        "APPROVED",
+                        "SUBMITTED",
+                        "REJECTED",
+                        "DRAFT",
+                      ].map((v) => (
+                        <option key={v} value={v}>
+                          {v === "ALL" ? "All statuses" : statusLabel(v)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="submission-grid">
+                  {account.submissions
+                    .filter(
+                      (s) =>
+                        filter === "ALL" ||
+                        (filter === "DRAFT"
+                          ? !["SUBMITTED", "APPROVED", "REJECTED"].includes(
+                              s.submissionStatus,
+                            )
+                          : s.submissionStatus === filter),
+                    )
+                    .map((s) => (
+                      <article className="submission-card" key={s.code}>
+                        <PrivatePhoto
+                          record={s}
+                          kind="submissions"
+                          session={session}
+                          alt={s.submittedFacts.name || "Submission photo"}
+                        />
+                        <div>
+                          <span
+                            className={`status ${s.submissionStatus.toLowerCase()}`}
+                          >
+                            {statusLabel(s.submissionStatus)}
+                          </span>
+                          <h3>
+                            {s.submittedFacts.name ||
+                              "New electronics submission"}
+                          </h3>
+                          <p>
+                            {new Date(
+                              s.metadata?.submittedAt || Date.now(),
+                            ).toLocaleDateString("en-GB")}{" "}
+                            · {s.code.slice(-12)}
+                          </p>
+                          {s.metadata?.publicReason && (
+                            <p className="rejection-reason">
+                              {s.metadata.publicReason}
+                            </p>
+                          )}
+                          <button
+                            className="text-button"
+                            onClick={() => setDetail(s)}
+                          >
+                            View details <ArrowUpRight size={16} />
+                          </button>
+                          {![
+                            "APPROVED",
+                            "SUBMITTED",
+                            "REJECTED",
+                            "UNDER_REVIEW",
+                          ].includes(s.submissionStatus) && (
+                            <button
+                              className="secondary"
+                              onClick={() => onResume(s.code)}
+                            >
+                              Continue draft
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                </div>
+              </>
+            ) : tab === "assets" ? (
+              <>
+                <div className="filter-toolbar">
+                  <h2>Owned assets</h2>
+                  <span>{account.assets.length} assets</span>
+                </div>
+                <div className="submission-grid">
+                  {account.assets.map((a) => (
+                    <article className="submission-card" key={a.code}>
+                      <PrivatePhoto
+                        record={a}
+                        kind="assets"
+                        session={session}
+                        alt={a.metadata.facts.name || a.code}
+                      />
+                      <div>
+                        <span className="status approved">
+                          {statusLabel(a.assetStatus)}
+                        </span>
+                        <h3>{a.metadata.facts.name}</h3>
+                        <p>
+                          {a.metadata.illustrativeCarbonUnits || 0} illustrative
+                          carbon units
+                        </p>
+                        <a
+                          className="text-link"
+                          href={`/account/assets/${encodeURIComponent(a.code)}`}
+                        >
+                          Manage asset <ArrowUpRight size={16} />
+                        </a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="activity-list">
+                {account.events.length ? (
+                  account.events.map((ev) => (
+                    <div key={ev.code}>
+                      <ShieldCheck size={18} />
+                      <span>
+                        {ev.eventType || "Ownership recorded"}
+                        <small>{ev.code}</small>
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p>No ownership changes yet.</p>
+                )}
+              </div>
+            )}
+          </>
+        )
+      )}
+      {detail && (
+        <Dialog
+          title={detail.submittedFacts.name || "Submission details"}
+          onClose={() => setDetail(null)}
+        >
+          <PrivatePhoto
+            className="detail-photo"
+            record={detail}
+            kind="submissions"
+            session={session}
+            alt="Submission evidence"
+          />
+          <span className={`status ${detail.submissionStatus.toLowerCase()}`}>
+            {statusLabel(detail.submissionStatus)}
+          </span>
+          <p>
+            {detail.submittedFacts.description || "No additional description."}
+          </p>
+          <dl>
+            <dt>Reference</dt>
+            <dd>{detail.code}</dd>
+            <dt>Quantity</dt>
+            <dd>{detail.submittedFacts.quantity || 1}</dd>
+            <dt>Collection centre</dt>
+            <dd>{detail.submittedFacts.preferredCollectionPointCode}</dd>
+          </dl>
+          {detail.metadata.publicReason && (
+            <p className="rejection-reason">
+              Review feedback: {detail.metadata.publicReason}
+            </p>
+          )}
+        </Dialog>
+      )}
+    </main>
+  );
+}
+function WalletPage({
+  wallet,
+  error,
+  onRefresh,
+}: {
+  wallet: Wallet | null;
+  error: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <main className="container account-page">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">Value you can follow</span>
+          <h1>Your wallet</h1>
+          <p>Available balances and a history of every recorded change.</p>
+        </div>
+        <a href="/account" className="text-link">
+          My Account <ArrowUpRight size={16} />
+        </a>
+      </div>
+      <ErrorNotice error={error} retry={onRefresh} />
+      {!wallet && !error ? (
+        <p role="status">Loading your wallet…</p>
+      ) : (
+        wallet && (
+          <>
+            <div className="wallet-cards">
+              {[
+                { code: "points", label: "Reward points", Icon: Coins },
+                {
+                  code: "circaCarbon",
+                  label: "Illustrative carbon units",
+                  Icon: Leaf,
+                },
+              ].map(({ code, label, Icon }) => {
+                const b = wallet.balances.find(
+                  (v) => v.rewardTypeCode === code,
+                );
+                return (
+                  <article
+                    key={code}
+                    className={code === "points" ? "points" : "carbon"}
                   >
-                    {index + 1}
+                    <Icon size={26} />
+                    <h2>{label}</h2>
+                    <strong>{b?.available || 0}</strong>
+                    <p>Available · {b?.reserved || 0} held</p>
+                  </article>
+                );
+              })}
+            </div>
+            <p className="sample-note">
+              Carbon units in this local sample are illustrative and are not
+              certified carbon credits.
+            </p>
+            <h2>Transaction history</h2>
+            <div className="ledger">
+              {wallet.entries.map((entry) => (
+                <div key={entry.code}>
+                  <span className="ledger-icon">
+                    {entry.rewardTypeCode === "points" ? (
+                      <Coins size={20} />
+                    ) : (
+                      <Leaf size={20} />
+                    )}
                   </span>
-                ))}
-              </div>
-            ) : null}
-            <div className="action-row">
-              <button className="secondary-action" onClick={() => setMapOpen(true)} type="button">
-                <MapPinned size={16} />
-                See on map
-              </button>
-              <button
-                className="primary-action"
-                onClick={() => setStep('EVIDENCE_CAPTURE')}
-                type="button"
-              >
-                Continue to photo
-              </button>
+                  <span>
+                    <strong>
+                      {entry.entryType.replaceAll("_", " ").toLowerCase()}
+                    </strong>
+                    <small>
+                      {entry.sourceCode} ·{" "}
+                      {new Date(entry.postedAt).toLocaleDateString("en-GB")}
+                    </small>
+                  </span>
+                  <span>
+                    <strong>{entry.amount}</strong>
+                    <small>
+                      {entry.rewardTypeCode === "points"
+                        ? "points"
+                        : "carbon units"}
+                    </small>
+                  </span>
+                </div>
+              ))}
+              {!wallet.entries.length && (
+                <p>
+                  Your first transaction will appear here after approval or a
+                  purchase.
+                </p>
+              )}
             </div>
+          </>
+        )
+      )}
+    </main>
+  );
+}
+function ShopPage({
+  offers,
+  kind,
+  loading,
+  error,
+}: {
+  offers: Offer[];
+  kind: "ASSET" | "COUPON";
+  loading: boolean;
+  error: string;
+}) {
+  const [query, setQuery] = useState(""),
+    [sort, setSort] = useState("featured");
+  let visible = offers.filter((o) =>
+    (o.name + " " + o.issuer).toLowerCase().includes(query.toLowerCase()),
+  );
+  if (sort === "price")
+    visible = [...visible].sort((a, b) => a.rewardPrice - b.rewardPrice);
+  return (
+    <main className="container shop-page">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">
+            {kind === "ASSET"
+              ? "The circular marketplace"
+              : "Rewards with possibilities"}
+          </span>
+          <h1>
+            {kind === "ASSET"
+              ? "Find its next chapter."
+              : "Something good awaits."}
+          </h1>
+          <p>
+            {kind === "ASSET"
+              ? "Browse verified assets and keep their value in circulation."
+              : "Choose a partner offer and put your reward points to work."}
+          </p>
+        </div>
+      </div>
+      <div className="shop-filters">
+        <input
+          aria-label="Search marketplace"
+          placeholder="Search by name or partner"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          aria-label="Sort offers"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="featured">Featured</option>
+          <option value="price">Points: low to high</option>
+        </select>
+        <span>{visible.length} available</span>
+      </div>
+      <ErrorNotice error={error} />
+      {loading ? (
+        <p role="status">Loading marketplace…</p>
+      ) : (
+        <div className="shop-grid">
+          {visible.map((o) => (
+            <OfferCard key={o.code} offer={o} />
+          ))}
+          {!visible.length && !error && (
+            <p>No matching offers. Try a different search.</p>
+          )}
+        </div>
+      )}
+    </main>
+  );
+}
+function TransactionPage({
+  offer,
+  session,
+  wallet,
+  onLogin,
+  onComplete,
+}: {
+  offer: Offer;
+  session: Session | null;
+  wallet: Wallet | null;
+  onLogin: () => void;
+  onComplete: () => void;
+}) {
+  const [review, setReview] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [result, setResult] = useState<{
+      code: string;
+      message?: string;
+      entitlementCode?: string;
+    } | null>(null),
+    key = useRef(commandKey());
+  const balance = Number(
+    wallet?.balances.find((b) => b.rewardTypeCode === "points")?.available || 0,
+  );
+  return (
+    <main className="container detail-page">
+      <a
+        className="back-link"
+        href={offer.kind === "ASSET" ? "/shop" : "/coupons"}
+      >
+        <ChevronLeft size={16} />
+        Back to {offer.kind === "ASSET" ? "assets" : "coupons"}
+      </a>
+      <div className="detail-layout">
+        <img
+          className="detail-main-image"
+          src={publishedArtwork(offer.imageUrl || "/media/asset-laptop.svg")}
+          alt={offer.name}
+        />
+        <div>
+          <span className="eyebrow">{offer.issuer || "Circa community"}</span>
+          <h1>{offer.name}</h1>
+          <p>{offer.description}</p>
+          <div className="detail-price">
+            <Coins size={24} />
+            <strong>{offer.rewardPrice}</strong> reward points
           </div>
-        ) : null}
-
-        {activeStep === 'EVIDENCE_CAPTURE' ? (
-          <div className="modal-section">
-            <h3>Upload or capture the item photo</h3>
-            <p>The image becomes the evidence object for AI extraction and Axis review.</p>
-            <div className="evidence-grid">
-              <img src={imagePreview} alt="Selected eWaste evidence preview" />
-              <div className="upload-actions">
-                <label className="file-action">
-                  <Upload size={18} />
-                  Upload image
-                  <input
-                    accept="image/*"
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file && URL.createObjectURL) {
-                        setImagePreview(URL.createObjectURL(file));
-                      }
-                    }}
-                  />
-                </label>
-                <label className="file-action">
-                  <Camera size={18} />
-                  Camera
-                  <input
-                    accept="image/*"
-                    capture="environment"
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file && URL.createObjectURL) {
-                        setImagePreview(URL.createObjectURL(file));
-                      }
-                    }}
-                  />
-                </label>
-                <button
-                  className="secondary-action"
-                  onClick={() => setImagePreview('/media/asset-phone.svg')}
-                  type="button"
-                >
-                  Use sample photo
+          {offer.kind === "ASSET" ? (
+            <p>
+              <Leaf size={16} /> {offer.carbonUnits || 0} illustrative carbon
+              units move with the asset.
+            </p>
+          ) : (
+            <p>
+              Redeem the issued coupon with its partner. Carbon balance stays
+              unchanged for this sample offer.
+            </p>
+          )}
+          <p className="sample-note">
+            Local sample{" "}
+            {offer.kind === "ASSET"
+              ? "digital asset ownership. No physical delivery is included."
+              : "offer. No real-world merchant redemption is promised."}
+          </p>
+          {result ? (
+            <div className="purchase-receipt" role="status">
+              <Check size={30} />
+              <h2>
+                {offer.kind === "ASSET"
+                  ? "The asset is now yours."
+                  : "Your coupon is ready."}
+              </h2>
+              <p>{result.message}</p>
+              <p>Reference: {result.code}</p>
+              {result.entitlementCode && (
+                <p>
+                  Coupon: <strong>{result.entitlementCode}</strong>
+                </p>
+              )}
+              <a className="primary" href="/account">
+                Go to My Account
+              </a>
+            </div>
+          ) : (
+            <>
+              <ErrorNotice error={error} />
+              {session ? (
+                <>
+                  <p>
+                    Your available balance:{" "}
+                    {wallet ? `${balance} points` : "Loading…"}
+                  </p>
+                  {offer.ownerCode === wallet?.wallet.ownerCode ? (
+                    <p>You own this asset.</p>
+                  ) : (
+                    <button
+                      className="primary"
+                      disabled={!wallet || balance < offer.rewardPrice || busy}
+                      onClick={() => setReview(true)}
+                    >
+                      Review{" "}
+                      {offer.kind === "ASSET" ? "purchase" : "coupon purchase"}{" "}
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                  {wallet && balance < offer.rewardPrice && (
+                    <p>More points are needed for this purchase.</p>
+                  )}
+                </>
+              ) : (
+                <button className="primary" onClick={onLogin}>
+                  Sign in to continue
                 </button>
-              </div>
-            </div>
-            <button className="primary-action wide" onClick={analyze} type="button">
-              {isAnalyzing ? 'Analyzing evidence' : 'Extract evidence with AI'}
-            </button>
-          </div>
-        ) : null}
-
-        {activeStep === 'AI_SUMMARY_CONFIRM' ? (
-          <div className="modal-section">
-            <h3>Confirm extracted eWaste value</h3>
-            <div className="summary-grid">
-              <div>
-                <span>Name</span>
-                <strong>AI named smartphone evidence</strong>
-              </div>
-              <div>
-                <span>Type</span>
-                <strong>Smartphone</strong>
-              </div>
-              <div>
-                <span>Reward estimate</span>
-                <strong>12 points</strong>
-              </div>
-              <div>
-                <span>Carbon estimate</span>
-                <strong>14 credits</strong>
-              </div>
-            </div>
-            <p>
-              Reward appreciation is credited to the customer wallet after approval.
-              Carbon credits remain part of the approved asset projection and move by
-              configurable transfer policy.
-            </p>
-            <button className="primary-action wide" onClick={submitForApproval} type="button">
-              Confirm and submit for approval
-            </button>
-          </div>
-        ) : null}
-
-        {activeStep === 'UNDER_APPROVAL' ? (
-          <div className="modal-section success">
-            <PackageCheck size={42} />
-            <h3>Your asset is under approval</h3>
-            <p>
-              A Circa operator will verify the evidence in Axis. Dashboard status and
-              wallet movement are updated after final approval.
-            </p>
-            <button className="primary-action" onClick={onClose} type="button">
-              View dashboard
-            </button>
-          </div>
-        ) : null}
-      </section>
-    </div>
-  );
-}
-
-function AssetCard({
-  asset,
-  owned,
-  onBuy,
-  onGift,
-  onList,
-  onSelect,
-}: {
-  readonly asset: CircularAsset;
-  readonly owned: boolean;
-  readonly onBuy?: (asset: CircularAsset) => void;
-  readonly onGift?: (asset: CircularAsset) => void;
-  readonly onList?: (asset: CircularAsset) => void;
-  readonly onSelect: (asset: CircularAsset) => void;
-}) {
-  return (
-    <article className="product-card asset-product-card">
-      <button className="image-button" onClick={() => onSelect(asset)} type="button">
-        <img src={asset.imageUrl} alt={asset.name} />
-        <span className={`status ${asset.status.toLowerCase()}`}>{statusLabel(asset.status)}</span>
-      </button>
-      <div className="quick-actions" aria-label={`${asset.name} quick actions`}>
-        <button onClick={() => onSelect(asset)} type="button" aria-label={`View ${asset.name}`}>
-          <BadgeCheck size={16} />
-        </button>
-        {owned && ['APPROVED', 'LISTED'].includes(asset.status) && onGift ? (
-          <button onClick={() => onGift(asset)} type="button" aria-label={`Gift ${asset.name}`}>
-            <Gift size={16} />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {offer.kind === "ASSET" &&
+        offer.biddingAvailable &&
+        session &&
+        offer.ownerCode !== wallet?.wallet.ownerCode &&
+        !result && <BidComposer offer={offer} session={session} />}
+      {review && (
+        <Dialog
+          title="Review your purchase"
+          onClose={() => {
+            if (!busy) setReview(false);
+          }}
+        >
+          <h3>{offer.name}</h3>
+          <dl>
+            <dt>Reward payment</dt>
+            <dd>{offer.rewardPrice} points</dd>
+            <dt>Available after purchase</dt>
+            <dd>{balance - offer.rewardPrice} points</dd>
+            <dt>
+              {offer.kind === "ASSET"
+                ? "Asset and carbon ownership"
+                : "Carbon balance"}
+            </dt>
+            <dd>
+              {offer.kind === "ASSET"
+                ? `${offer.carbonUnits || 0} illustrative units transfer with the asset. Original approval rewards remain with the contributor.`
+                : "Unchanged for this offer."}
+            </dd>
+          </dl>
+          <ErrorNotice error={error} />
+          <button
+            className="primary full"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const r = await request<{
+                  code: string;
+                  message?: string;
+                  entitlementCode?: string;
+                }>(`${API}/marketplace/${offer.code}/purchase`, session, {
+                  confirmed: true,
+                  expectedRevision: offer.revision,
+                  idempotencyKey: key.current,
+                });
+                setResult(r);
+                setReview(false);
+                onComplete();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Purchase failed.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "Completing purchase…" : "Confirm purchase"}
           </button>
-        ) : null}
-      </div>
-      <div className="product-card-content">
-        <div className="product-meta">
-          <span>{asset.category}</span>
-          <span>{asset.id}</span>
-        </div>
-        <h3>{asset.name}</h3>
-        <p>{asset.type} verified through {asset.centre}.</p>
-        <div className="metric-row">
-          <span><Coins size={15} /> {asset.rewardEarned} reward appreciation</span>
-          <span><Leaf size={15} /> {asset.carbonCredits} carbon credits</span>
-        </div>
-        <div className="price-row">
-          <strong>{asset.tradePrice ? `${asset.tradePrice} rewards` : 'Not listed'}</strong>
-          <small>{asset.ownerName}</small>
-        </div>
-        <div className="product-card-actions">
-          <button className="secondary-action" onClick={() => onSelect(asset)} type="button">
-            Details
-          </button>
-          {owned && asset.status === 'APPROVED' && onList ? (
-            <button className="primary-action" onClick={() => onList(asset)} type="button">
-              Trade
-            </button>
-          ) : null}
-          {!owned && asset.status === 'LISTED' && onBuy ? (
-            <button className="primary-action" onClick={() => onBuy(asset)} type="button">
-              Bid / buy
-            </button>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function AssetDetailPanel({ asset }: { readonly asset: CircularAsset }) {
-  return (
-    <aside className="asset-detail-panel" aria-label="Asset detail">
-      <div className="detail-media">
-        <img src={asset.imageUrl} alt={asset.name} />
-      </div>
-      <div className="detail-copy">
-        <span className={`status ${asset.status.toLowerCase()}`}>{statusLabel(asset.status)}</span>
-        <p className="eyebrow">Verified circular asset</p>
-        <h3>{asset.name}</h3>
-        <p>
-          {asset.type} submitted through {asset.centre}. The reward appreciation is
-          wallet-ledger value; carbon credits follow the asset transfer policy.
-        </p>
-        <dl>
-          <div><dt>Asset code</dt><dd>{asset.id}</dd></div>
-          <div><dt>Reward earned</dt><dd>{asset.rewardEarned}</dd></div>
-          <div><dt>Carbon credits</dt><dd>{asset.carbonCredits}</dd></div>
-          <div><dt>Submitted</dt><dd>{asset.submittedAt}</dd></div>
-        </dl>
-      </div>
-    </aside>
-  );
-}
-
-function CouponCard({
-  coupon,
-  onBuy,
-}: {
-  readonly coupon: CouponOffer;
-  readonly onBuy: (coupon: CouponOffer) => void;
-}) {
-  return (
-    <article className="product-card coupon-product-card">
-      <div className="image-button as-media">
-        <img src={coupon.imageUrl} alt={coupon.title} />
-      </div>
-      <div className="product-card-content">
-        <div className="product-meta">
-          <span><Store size={15} /> {coupon.enterprise}</span>
-          <span>{coupon.id}</span>
-        </div>
-        <h3>{coupon.title}</h3>
-        <p>{coupon.carbonSettlement}</p>
-        <div className="price-row">
-          <strong>{coupon.rewardCost} rewards</strong>
-          <small>Expires {coupon.expires}</small>
-        </div>
-        <div className="product-card-actions">
-          <button className="primary-action" onClick={() => onBuy(coupon)} type="button">
-            Buy for {coupon.rewardCost} rewards
-          </button>
-        </div>
-      </div>
-    </article>
+        </Dialog>
+      )}
+    </main>
   );
 }
 
 export function CircaApp() {
-  const experience = circaExperienceComposition;
-  const [customer, setCustomer] = useState<Customer>();
-  const [wallet, setWallet] = useState<WalletState>({
-    rewards: 48,
-    carbonCredits: 38,
-    coupons: [],
-  });
-  const [assets, setAssets] = useState<readonly CircularAsset[]>(initialAssets);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | AssetStatus>('ALL');
-  const [query, setQuery] = useState('');
-  const [submitOpen, setSubmitOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<CircularAsset>(initialAssets[0]);
-  const [notice, setNotice] = useState(
-    'Local component payload is active until WCMS and Circa backend contracts are connected.',
+  const [path, setPath] = useState(window.location.pathname),
+    [session, setSession] = useState<Session | null>(readSession),
+    [experience, setExperience] = useState<Experience | null>(null),
+    [experienceError, setExperienceError] = useState(""),
+    [account, setAccount] = useState<Account | null>(null),
+    [accountError, setAccountError] = useState(""),
+    [wallet, setWallet] = useState<Wallet | null>(null),
+    [walletError, setWalletError] = useState(""),
+    [market, setMarket] = useState<Market>({ assets: [], coupons: [] }),
+    [marketError, setMarketError] = useState(""),
+    [marketLoading, setMarketLoading] = useState(true),
+    [login, setLogin] = useState(false),
+    [menu, setMenu] = useState(false),
+    [headerIsScrolled, setHeaderIsScrolled] = useState(false),
+    [assistant, setAssistant] = useState(false),
+    [selectedCentre, setSelectedCentre] = useState<Centre | null>(null),
+    [resumeCode, setResumeCode] = useState<string>(),
+    [refresh, setRefresh] = useState(0);
+  const cms = usePublishedPage(
+    path === "/privacy" || path === "/terms" ? path : "/",
+    refresh,
   );
-
-  const ownedAssets = useMemo(
-    () => assets.filter((asset) => asset.ownerId === demoCustomerId),
-    [assets],
-  );
-
-  const filteredOwnedAssets = useMemo(
-    () =>
-      ownedAssets.filter((asset) => {
-        const statusMatches = statusFilter === 'ALL' || asset.status === statusFilter;
-        const text = `${asset.name} ${asset.type} ${asset.category} ${asset.centre}`.toLowerCase();
-        return statusMatches && text.includes(query.toLowerCase());
-      }),
-    [ownedAssets, query, statusFilter],
-  );
-
-  const listedAssets = assets.filter((asset) => asset.status === 'LISTED');
-
-  const login = (nextCustomer: Customer) => {
-    setCustomer(nextCustomer);
-    setLoginOpen(false);
-    setNotice(`${nextCustomer.name} is signed in. Wallet and owned assets are active.`);
-  };
-
-  const listAsset = (asset: CircularAsset) => {
-    setAssets((current) =>
-      current.map((item) =>
-        item.id === asset.id ? { ...item, status: 'LISTED', tradePrice: 18 } : item,
-      ),
-    );
-    setNotice(`${asset.name} is listed in the asset marketplace. Rewards stay in your wallet.`);
-  };
-
-  const giftAsset = (asset: CircularAsset) => {
-    setAssets((current) =>
-      current.map((item) =>
-        item.id === asset.id
-          ? { ...item, status: 'SOLD', ownerId: 'gift-recipient', ownerName: 'Gift recipient' }
-          : item,
-      ),
-    );
-    setWallet((current) => ({
-      ...current,
-      carbonCredits: Math.max(0, current.carbonCredits - asset.carbonCredits),
-    }));
-    setNotice(
-      `${asset.name} was gifted. Carbon credits moved with the asset; attached rewards are policy controlled.`,
-    );
-  };
-
-  const buyAsset = (asset: CircularAsset) => {
-    const price = asset.tradePrice ?? 0;
-    if (wallet.rewards < price) {
-      setNotice('Wallet rewards are not enough for this bid.');
-      return;
+  const shell = cms.page?.sections.find(
+    (section) => section.renderer === "circa.shell",
+  )?.properties;
+  const refreshAll = useCallback(() => setRefresh((v) => v + 1), []);
+  useEffect(() => {
+    let active = true;
+    void restoreSession().then(value => { if (active) setSession(value); }).catch(() => { if (active) setAccountError("Your session could not be restored. Please sign in again."); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    const updateHeader = () => setHeaderIsScrolled(window.scrollY > 48);
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+    return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
+  useEffect(() => {
+    const handler = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", handler);
+    const click = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest("a");
+      if (
+        !link ||
+        link.target ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey ||
+        e.button !== 0
+      )
+        return;
+      const url = new URL(link.href);
+      if (url.origin !== location.origin) return;
+      e.preventDefault();
+      history.pushState({}, "", url.pathname + url.hash);
+      setPath(url.pathname);
+      setMenu(false);
+      if (url.hash)
+        setTimeout(
+          () =>
+            document
+              .querySelector(url.hash)
+              ?.scrollIntoView({ behavior: "smooth" }),
+          60,
+        );
+      else window.scrollTo(0, 0);
+    };
+    document.addEventListener("click", click);
+    return () => {
+      window.removeEventListener("popstate", handler);
+      document.removeEventListener("click", click);
+    };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    request<Experience>(`${APP_API}/experience`)
+      .then((d) => {
+        if (active) {
+          setExperience(d);
+          setExperienceError("");
+        }
+      })
+      .catch((e) => {
+        if (active) setExperienceError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refresh, assistant]);
+  useEffect(() => {
+    let active = true;
+    setMarketLoading(true);
+    request<Market>(`${API}/marketplace`)
+      .then((d) => {
+        if (active) {
+          setMarket(d);
+          setMarketError("");
+        }
+      })
+      .catch((e) => {
+        if (active) setMarketError(e.message);
+      })
+      .finally(() => {
+        if (active) setMarketLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    setAccountError("");
+    setWalletError("");
+    if (session) {
+      request<Account>(`${API}/account`, session)
+        .then((d) => {
+          if (active) setAccount(d);
+        })
+        .catch((e) => {
+          if (active) setAccountError(e.message);
+        });
+      request<Wallet>(`${API}/wallet`, session)
+        .then((d) => {
+          if (active) setWallet(d);
+        })
+        .catch((e) => {
+          if (active) setWalletError(e.message);
+        });
     }
-    setWallet((current) => ({
-      ...current,
-      rewards: current.rewards - price,
-      carbonCredits: current.carbonCredits + asset.carbonCredits,
-    }));
-    setAssets((current) =>
-      current.map((item) =>
-        item.id === asset.id
-          ? { ...item, status: 'APPROVED', ownerId: demoCustomerId, ownerName: 'Circa Customer' }
-          : item,
-      ),
+    return () => {
+      active = false;
+    };
+  }, [session, refresh]);
+  const publicPage =
+    path === "/" ||
+    path.startsWith("/shop") ||
+    path.startsWith("/coupons") ||
+    path === "/privacy" ||
+    path === "/terms";
+  const detailCode = decodeURIComponent(path.split("/")[2] || ""),
+    liveOffer = [...market.assets, ...market.coupons].find(
+      (o) => o.code === detailCode,
     );
-    setNotice(
-      `${asset.name} purchased for ${price.toString()} rewards. Carbon credits transferred to your wallet projection.`,
-    );
-  };
-
-  const buyCoupon = (coupon: CouponOffer) => {
-    if (wallet.rewards < coupon.rewardCost) {
-      setNotice('Wallet rewards are not enough for this coupon.');
-      return;
-    }
-    setWallet((current) => ({
-      ...current,
-      rewards: current.rewards - coupon.rewardCost,
-      coupons: [...current.coupons, coupon.id],
-    }));
-    setNotice(
-      `${coupon.title} is now customer owned. Claim code is ready for ${coupon.enterprise}.`,
-    );
-  };
-
-  const accountSlot = customer ? (
-    <button className="account-pill" type="button">
-      <Wallet size={16} />
-      {wallet.rewards} rewards
-    </button>
-  ) : (
-    <button
-      aria-label="Open customer login"
-      className="secondary-action"
-      onClick={() => setLoginOpen(true)}
-      type="button"
-    >
-      Login
-    </button>
-  );
-
-  return (
-    <NodicsSiteShell accountSlot={accountSlot} notice={notice} shell={experience.shell}>
-      <main className="circa-main">
-        <section
-          className="circa-hero"
-          data-component-code={experience.hero.componentCode}
-          data-owner-module={experience.hero.ownerModule}
-          id="home"
-        >
-          <div className="hero-copy">
-            <p className="eyebrow">{experience.hero.eyebrow}</p>
-            <h1>{experience.hero.headline}</h1>
-            <p>{experience.hero.body}</p>
-            <div className="hero-actions">
-              <button
-                aria-label="Start Submit eWaste"
-                className="primary-action"
-                onClick={() => setSubmitOpen(true)}
-                type="button"
-              >
-                Submit eWaste
-                <ArrowRight size={18} />
-              </button>
-              <a className="text-action" href="#shop">Explore marketplace</a>
-            </div>
-          </div>
-          <div className="hero-media">
-            <img src={experience.hero.mediaUrl} alt={experience.hero.mediaAlt} />
-          </div>
-        </section>
-
-        <section className="value-band" aria-label="Circa value proposition">
-          {experience.valueCards.map((card) => (
-            <article data-component-code={card.componentCode} key={card.componentCode}>
-              <ShieldCheck size={22} />
-              <h3>{card.title}</h3>
-              <p>{card.body}</p>
-            </article>
-          ))}
-        </section>
-
-        <section
-          className="submit-strip"
-          data-component-code={experience.sections.submit.componentCode}
-          id="submit"
-        >
-          <div>
-            <p className="eyebrow">{experience.sections.submit.eyebrow}</p>
-            <h2>{experience.sections.submit.title}</h2>
-            <p>{experience.sections.submit.body}</p>
-          </div>
-          <button className="primary-action" onClick={() => setSubmitOpen(true)} type="button">
-            Open Submit eWaste
-          </button>
-        </section>
-
-        <section
-          className="dashboard-section"
-          data-component-code={experience.sections.dashboard.componentCode}
-          id="dashboard"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{experience.sections.dashboard.eyebrow}</p>
-              <h2>{experience.sections.dashboard.title}</h2>
-            </div>
-            <div className="wallet-summary" aria-label="Wallet summary">
-              <span><Coins size={18} /> {wallet.rewards} rewards</span>
-              <span><Leaf size={18} /> {wallet.carbonCredits} carbon</span>
-              <span><ShoppingBag size={18} /> {wallet.coupons.length} coupons</span>
-            </div>
-          </div>
-
-          {!customer ? (
-            <div className="inline-login">
-              <LoginPanel compact onLogin={login} />
-            </div>
-          ) : (
-            <>
-              <div className="filters">
-                <label>
-                  <Search size={16} />
-                  <input
-                    placeholder="Search assets"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </label>
-                <select
-                  aria-label="Asset status filter"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as 'ALL' | AssetStatus)}
-                >
-                  <option value="ALL">All statuses</option>
-                  <option value="PENDING_REVIEW">Under approval</option>
-                  <option value="APPROVED">Approved</option>
-                  <option value="LISTED">Listed</option>
-                  <option value="REJECTED">Rejected</option>
-                  <option value="SOLD">Sold</option>
-                </select>
-              </div>
-              <div className="asset-layout">
-                <div className="grid product-grid">
-                  {filteredOwnedAssets.map((asset) => (
-                    <AssetCard
-                      asset={asset}
-                      key={asset.id}
-                      owned
-                      onGift={giftAsset}
-                      onList={listAsset}
-                      onSelect={setSelectedAsset}
-                    />
-                  ))}
-                </div>
-                <AssetDetailPanel asset={selectedAsset} />
-              </div>
-            </>
-          )}
-        </section>
-
-        <section
-          className="market-section"
-          data-component-code={experience.sections.marketplace.componentCode}
-          id="shop"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{experience.sections.marketplace.eyebrow}</p>
-              <h2>{experience.sections.marketplace.title}</h2>
-            </div>
-            <span className="contract-note">{experience.sections.marketplace.body}</span>
-          </div>
-          <div className="grid product-grid">
-            {listedAssets.map((asset) => (
-              <AssetCard
-                asset={asset}
-                key={asset.id}
-                owned={asset.ownerId === demoCustomerId}
-                onBuy={buyAsset}
-                onGift={giftAsset}
-                onList={listAsset}
-                onSelect={setSelectedAsset}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section
-          className="coupon-section"
-          data-component-code={experience.sections.coupons.componentCode}
-          id="coupons"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{experience.sections.coupons.eyebrow}</p>
-              <h2>{experience.sections.coupons.title}</h2>
-            </div>
-            <span className="contract-note">{experience.sections.coupons.body}</span>
-          </div>
-          <div className="grid product-grid">
-            {couponOffers.map((coupon) => (
-              <CouponCard coupon={coupon} key={coupon.id} onBuy={buyCoupon} />
-            ))}
-          </div>
-        </section>
+  const offerSnapshot = useRef<Offer | null>(null);
+  if (liveOffer) offerSnapshot.current = liveOffer;
+  else if (offerSnapshot.current?.code !== detailCode)
+    offerSnapshot.current = null;
+  const offer = liveOffer || offerSnapshot.current;
+  const assetCode = decodeURIComponent(path.split("/")[3] || ""),
+    liveAsset = account?.assets.find((a) => a.code === assetCode);
+  const assetSnapshot = useRef<Asset | null>(null);
+  if (!session || !path.startsWith("/account/assets/"))
+    assetSnapshot.current = null;
+  else if (liveAsset) assetSnapshot.current = liveAsset;
+  else if (assetSnapshot.current?.code !== assetCode)
+    assetSnapshot.current = null;
+  function onLogin(value: Session) {
+    saveSession(value);
+    setSession(value);
+    setLogin(false);
+  }
+  function logout() {
+    void endSession().catch(() => setExperienceError("Server sign-out could not be confirmed. Reconnect and sign out again."));
+    saveSession(null);
+    setSession(null);
+    setAccount(null);
+    setWallet(null);
+    setAssistant(false);
+    setResumeCode(undefined);
+  }
+  function submit() {
+    setAssistant(true);
+  }
+  let page: ReactNode;
+  if (!publicPage && !session)
+    page = (
+      <main className="container protected-page">
+        <Leaf size={42} />
+        <h1>Your journey, all in one place.</h1>
+        <p>Sign in to view your submissions, owned assets and wallet.</p>
+        <button className="primary" onClick={() => setLogin(true)}>
+          Sign in or register
+        </button>
       </main>
-
-      {loginOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section className="login-modal" role="dialog" aria-modal="true" aria-label="Customer login">
-            <button className="icon-button close-login" onClick={() => setLoginOpen(false)} type="button" aria-label="Close login">
-              x
-            </button>
-            <LoginPanel onLogin={login} />
-          </section>
-        </div>
-      ) : null}
-
-      <SubmitWastePopup
-        customer={customer}
-        open={submitOpen}
-        onClose={() => setSubmitOpen(false)}
-        onLogin={login}
-        onSubmitAsset={(asset) => {
-          setAssets((current) => [asset, ...current]);
-          setSelectedAsset(asset);
-          setNotice(`${asset.name} is waiting for Axis approval.`);
-        }}
+    );
+  else if (path === "/account")
+    page = (
+      <>
+        <AccountPage
+          session={session!}
+          account={account}
+          error={accountError}
+          onRefresh={refreshAll}
+          onResume={(code) => {
+            setResumeCode(code);
+            setAssistant(true);
+          }}
+        />
+        {session && (
+          <div className="container">
+            <BidHistory
+              session={session}
+              customerCode={account?.customer.code || ""}
+              offers={market.assets}
+              assets={account?.assets || []}
+              wallet={wallet}
+              onComplete={refreshAll}
+            />
+            <PurchaseHistory session={session} offers={market.coupons} />
+          </div>
+        )}
+      </>
+    );
+  else if (path === "/wallet")
+    page = (
+      <WalletPage wallet={wallet} error={walletError} onRefresh={refreshAll} />
+    );
+  else if (path.startsWith("/account/assets/")) {
+    const asset = liveAsset || assetSnapshot.current;
+    page = asset ? (
+      <OwnedAssetPage
+        key={asset.code}
+        asset={asset}
+        session={session!}
+        onComplete={refreshAll}
       />
-    </NodicsSiteShell>
+    ) : (
+      <main className="container page-heading">
+        <h1>{account ? "Asset not found" : "Loading asset…"}</h1>
+      </main>
+    );
+  } else if (path === "/shop" || path === "/coupons")
+    page = (
+      <ShopPage
+        offers={path === "/shop" ? market.assets : market.coupons}
+        kind={path === "/shop" ? "ASSET" : "COUPON"}
+        loading={marketLoading}
+        error={marketError}
+      />
+    );
+  else if (path.startsWith("/shop/") || path.startsWith("/coupons/"))
+    page = offer ? (
+      <TransactionPage
+        key={offer.code}
+        offer={offer}
+        session={session}
+        wallet={wallet}
+        onLogin={() => setLogin(true)}
+        onComplete={refreshAll}
+      />
+    ) : (
+      <main className="container page-heading">
+        <h1>
+          {marketLoading
+            ? "Loading offer…"
+            : marketError
+              ? "Offers are temporarily unavailable"
+              : "This offer is no longer available."}
+        </h1>
+        <ErrorNotice error={marketError} retry={refreshAll} />
+        <a href={path.startsWith("/coupons") ? "/coupons" : "/shop"}>
+          Browse available offers
+        </a>
+      </main>
+    );
+  else if (path === "/privacy" || path === "/terms") {
+    const policy = cms.page?.sections.find(
+      (section) => section.renderer === "circa.policy",
+    )?.properties;
+    page = (
+      <main className="container policy-page">
+        <ErrorNotice error={cms.error} retry={refreshAll} />
+        {policy ? (
+          <>
+            <h1>{text(policy, "title")}</h1>
+            {strings(policy, "paragraphs").map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+            <a href="/#contact">Contact the site operator</a>
+          </>
+        ) : (
+          <p role="status">Loading published content…</p>
+        )}
+      </main>
+    );
+  } else if (path !== "/")
+    page = (
+      <main className="container page-heading">
+        <h1>Page not found</h1>
+        <a href="/">Return home</a>
+      </main>
+    );
+  else
+    page = (
+      <main>
+        <ErrorNotice error={cms.error} retry={refreshAll} />
+        {!cms.page && !cms.error && (
+          <p role="status">Loading published content…</p>
+        )}
+        {cms.page?.sections.map((section) => {
+          const content = section.properties;
+          switch (section.renderer) {
+            case "circa.shell":
+              return null;
+            case "circa.hero":
+              return (
+                <Hero key={section.code} content={content} onSubmit={submit} />
+              );
+            case "circa.wallet":
+              return session ? (
+                <WalletBand
+                  key={section.code}
+                  wallet={wallet}
+                  error={walletError}
+                />
+              ) : null;
+            case "circa.solution":
+              return (
+                <Solution
+                  key={section.code}
+                  content={content}
+                  onSubmit={submit}
+                />
+              );
+            case "circa.offers":
+              return (
+                <Offers
+                  key={section.code}
+                  content={content}
+                  kind={content.kind === "COUPON" ? "COUPON" : "ASSET"}
+                  offers={
+                    content.kind === "COUPON" ? market.coupons : market.assets
+                  }
+                  loading={marketLoading}
+                  error={marketError}
+                />
+              );
+            case "circa.centres":
+              return (
+                <section
+                  key={section.code}
+                  className="section container centres-section"
+                  id="centres"
+                >
+                  <div className="section-heading">
+                    <div>
+                      <span className="eyebrow">
+                        {text(content, "eyebrow")}
+                      </span>
+                      <h2>{text(content, "title")}</h2>
+                      <p>{text(content, "body")}</p>
+                    </div>
+                    <span className="badge">
+                      <MapCount count={experience?.centres.length} />
+                    </span>
+                  </div>
+                  <ErrorNotice error={experienceError} retry={refreshAll} />
+                  {experience ? (
+                    <CollectionMap
+                      centres={experience.centres}
+                      onChoose={(centre) => {
+                        setSelectedCentre(centre);
+                        setAssistant(true);
+                      }}
+                    />
+                  ) : (
+                    <p role="status">Loading collection centres…</p>
+                  )}
+                </section>
+              );
+            case "circa.contact":
+              return (
+                <Contact
+                  key={section.code}
+                  content={content}
+                  session={session}
+                />
+              );
+            default:
+              return null;
+          }
+        })}
+      </main>
+    );
+  return (
+    <div className="circa-site">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <div className="top-line">
+        <span>{text(shell, "tagline")}</span>
+        <span>
+          {experience?.presentation.sampleMode
+            ? "Local sample experience"
+            : "Give technology a new purpose"}{" "}
+          <Leaf size={12} />
+        </span>
+      </div>
+      <header
+        className={`site-header${headerIsScrolled ? " is-scrolled" : ""}`}
+      >
+        <div className="container header-inner">
+          <Brand light={headerIsScrolled} content={shell} />
+          <nav
+            className={menu ? "navigation open" : "navigation"}
+            aria-label="Main navigation"
+          >
+            <button
+              onClick={() => {
+                submit();
+                setMenu(false);
+              }}
+            >
+              Submit Waste
+            </button>
+            {items(shell, "navigation").map((link) => {
+              const href = text(link, "href");
+              return /^\/(?!\/)/.test(href) ? (
+                <a key={href} href={href}>
+                  {text(link, "label")}
+                </a>
+              ) : null;
+            })}
+          </nav>
+          <div className="header-actions">
+            {session ? (
+              <>
+                <a className="account-link" href="/account">
+                  My Account
+                </a>
+                <a className="wallet-link" aria-label="Wallet" href="/wallet">
+                  <WalletIcon size={20} />
+                </a>
+                <button
+                  className="icon-button"
+                  aria-label="Log out"
+                  onClick={logout}
+                >
+                  <LogOut size={18} />
+                </button>
+              </>
+            ) : (
+              <button
+                className="secondary login-link"
+                onClick={() => setLogin(true)}
+              >
+                Sign in <ArrowUpRight size={16} />
+              </button>
+            )}
+            <button
+              className="icon-button menu-button"
+              aria-label="Toggle navigation"
+              aria-expanded={menu}
+              onClick={() => setMenu(!menu)}
+            >
+              {menu ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
+        </div>
+      </header>
+      <div id="main-content">{page}</div>
+      <footer>
+        <div className="container footer-main">
+          <div>
+            <Brand light content={shell} />
+            <p>
+              <Lines value={text(shell, "footer")} />
+            </p>
+            <span className="footer-caption">{text(shell, "caption")}</span>
+          </div>
+          <div>
+            <h3>Explore Circa</h3>
+            <button onClick={submit}>Submit Waste</button>
+            <a href="/shop">Circular assets</a>
+            <a href="/coupons">Partner offers</a>
+            <a href="/#centres">Collection centres</a>
+          </div>
+          <div>
+            <h3>Your journey</h3>
+            <a href="/account">My Account</a>
+            <a href="/wallet">Wallet</a>
+            <a href="/#how-it-works">How it works</a>
+            <a href="/#contact">Get in touch</a>
+          </div>
+          <div className="footer-invite">
+            <Leaf size={32} />
+            <h3>
+              <Lines value={text(shell, "invitation")} />
+            </h3>
+            <a href="/#contact">
+              Be part of the circle <ArrowUpRight size={16} />
+            </a>
+          </div>
+        </div>
+        <div className="container footer-bottom">
+          <span>© {new Date().getFullYear()} Nodics. Circa eWaste.</span>
+          <span>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+          </span>
+        </div>
+      </footer>
+      {login && (
+        <Login
+          sample={experience?.presentation.sampleMode === true}
+          onClose={() => setLogin(false)}
+          onLogin={onLogin}
+        />
+      )}
+      <SubmissionAssistant
+        open={assistant}
+        setOpen={setAssistant}
+        session={session}
+        experience={experience}
+        selectedCentre={selectedCentre}
+        onLogin={() => setLogin(true)}
+        onSubmitted={refreshAll}
+        resumeCode={resumeCode}
+      />
+    </div>
+  );
+}
+function MapCount({ count }: { count?: number }) {
+  return <>{count === undefined ? "Loading" : `${count} collection centres`}</>;
+}
+function OwnedAssetPage({
+  asset,
+  session,
+  onComplete,
+}: {
+  asset: Asset;
+  session: Session;
+  onComplete: () => void;
+}) {
+  const [mode, setMode] = useState<"list" | "gift" | null>(null),
+    [price, setPrice] = useState(""),
+    [recipient, setRecipient] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [receipt, setReceipt] = useState(""),
+    key = useRef(
+      asset.assetStatus === "LISTING_REQUESTED"
+        ? asset.metadata.listingIdempotencyKey || commandKey()
+        : asset.assetStatus === "GIFT_PENDING"
+          ? asset.metadata.pendingTransferEvent?.idempotencyKey || commandKey()
+          : commandKey(),
+    );
+  return (
+    <main className="container detail-page">
+      <a className="back-link" href="/account">
+        <ChevronLeft size={16} />
+        My Account
+      </a>
+      <div className="detail-layout">
+        <PrivatePhoto
+          className="detail-main-image"
+          record={asset}
+          kind="assets"
+          session={session}
+          alt={asset.metadata.facts.name || asset.code}
+        />
+        <div>
+          <span className="eyebrow">Your verified asset</span>
+          <h1>{asset.metadata.facts.name}</h1>
+          <p>{asset.metadata.facts.description}</p>
+          <span className="status approved">
+            {statusLabel(asset.assetStatus)}
+          </span>
+          <dl>
+            <dt>Original approval reward</dt>
+            <dd>
+              {originalRewardOf(asset)} points · stays with the original
+              contributor
+            </dd>
+            <dt>Attached carbon</dt>
+            <dd>
+              {asset.metadata.illustrativeCarbonUnits || 0} illustrative units ·
+              moves with ownership
+            </dd>
+            <dt>Reference</dt>
+            <dd>{asset.code}</dd>
+          </dl>
+          {receipt ? (
+            <p className="success-inline" role="status">
+              {receipt}
+            </p>
+          ) : (
+            <div className="action-row">
+              <button
+                className="primary"
+                disabled={asset.assetStatus === "LISTED"}
+                onClick={() => setMode("list")}
+              >
+                List for trade
+              </button>
+              <button
+                className="secondary"
+                disabled={asset.assetStatus === "LISTED"}
+                onClick={() => setMode("gift")}
+              >
+                Gift asset
+              </button>
+            </div>
+          )}
+          <p className="sample-note">
+            Local sample digital ownership. Physical custody remains separate.
+          </p>
+        </div>
+      </div>
+      {mode && (
+        <Dialog
+          title={mode === "list" ? "Review asset listing" : "Review asset gift"}
+          onClose={() => {
+            if (!busy) setMode(null);
+          }}
+        >
+          <p>{asset.metadata.facts.name}</p>
+          {mode === "list" ? (
+            <label>
+              Asking price in reward points
+              <input
+                type="number"
+                min="1"
+                max="100000"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </label>
+          ) : (
+            <label>
+              Recipient customer email
+              <input
+                type="email"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+              />
+            </label>
+          )}
+          <p>
+            {mode === "gift"
+              ? "The recipient receives digital asset ownership and attached illustrative carbon. Your historical approval rewards stay with you."
+              : "Customers will see this price in the marketplace. Ownership changes only after a completed purchase."}
+          </p>
+          <ErrorNotice error={error} />
+          <button
+            className="primary full"
+            disabled={
+              busy ||
+              (mode === "list" ? !Number(price) : !recipient.includes("@"))
+            }
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const result = await request<{ message: string }>(
+                  `${API}/assets/${asset.code}/${mode}`,
+                  session,
+                  {
+                    confirmed: true,
+                    expectedRevision: asset.revision,
+                    idempotencyKey: key.current,
+                    ...(mode === "list"
+                      ? { rewardPrice: Number(price) }
+                      : { recipientEmail: recipient }),
+                  },
+                );
+                setReceipt(result.message);
+                setMode(null);
+                onComplete();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Action failed.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy
+              ? "Saving…"
+              : mode === "list"
+                ? "Confirm listing"
+                : "Confirm gift"}
+          </button>
+        </Dialog>
+      )}
+    </main>
   );
 }

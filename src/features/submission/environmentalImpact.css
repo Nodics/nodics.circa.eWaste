@@ -1,0 +1,25 @@
+.environment-card { background:#f0f4ec; border:1px solid #d9e3d3; border-radius:16px; padding:20px; margin:20px 0; color:#294d37; overflow-wrap:anywhere; }
+.environment-heading { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.environment-heading h3 { font-size:16px; line-height:1.35; margin:0; flex:1; }
+.environment-heading svg { flex-shrink:0; }
+.environment-status { font-size:10px; font-weight:700; padding:5px 8px; border-radius:6px; background:#e2ebdb; }
+.environment-status.illustrative { color:#785328; background:#f6e8cf; }
+.environment-headline { display:grid; gap:4px; margin:18px 0 10px; }
+.environment-headline strong { font-size:32px; line-height:1.15; letter-spacing:-1px; }
+.environment-headline strong small { font-size:17px; letter-spacing:0; }
+.environment-headline span { font-size:12px; }
+.environment-card p.environment-explanation { font-size:12px; line-height:1.6; color:#53644d; margin:10px 0; }
+.environment-credit { display:flex; justify-content:space-between; gap:12px; font-size:13px; border-top:1px solid #d8e1d1; padding-top:14px; margin-top:16px; }
+.environment-credit strong { text-align:right; }
+.environment-details { border-top:1px solid #d8e1d1; margin-top:16px; }
+.environment-details summary { cursor:pointer; font-size:13px; font-weight:650; padding:16px 0 4px; min-height:44px; }
+.environment-details summary:focus-visible { outline:2px solid #294d37; outline-offset:4px; }
+.environment-details dl { display:block; margin:4px 0 0; }
+.environment-indicator { display:block; padding:13px 0; border-bottom:1px solid #d8e1d1; }
+.environment-indicator dt { font-size:13px; font-weight:600; }
+.environment-indicator dd { margin:5px 0 0; font-size:13px; }
+.environment-indicator dd span { font-size:10px; margin-left:8px; }
+.environment-indicator dd.environment-requirements { font-size:11px; line-height:1.6; color:#617158; }
+.environment-method h4 { margin:17px 0 8px; font-size:13px; }
+.environment-method p { margin:5px 0; font-size:11px; line-height:1.6; color:#617158; }
+@media (max-width:360px) { .environment-card { padding:15px; } .environment-heading h3 { font-size:14px; } }
