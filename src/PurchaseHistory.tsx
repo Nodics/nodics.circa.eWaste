@@ -30,9 +30,11 @@ type Purchases = {
 export function PurchaseHistory({
   session,
   offers,
+  headingLevel: Heading = "h2",
 }: {
   session: Session;
   offers: Offer[];
+  headingLevel?: "h1" | "h2";
 }) {
   const [data, setData] = useState<Purchases | null>(null),
     [error, setError] = useState(""),
@@ -54,7 +56,7 @@ export function PurchaseHistory({
   }, [session, refresh]);
   return (
     <section className="purchase-history">
-      <h2>Your purchases & coupons</h2>
+      <Heading>Your purchases & coupons</Heading>
       {error && (
         <p className="error" role="alert">
           {error}

@@ -1,0 +1,122 @@
+.header-popover {
+  position: relative;
+  display: flex;
+}
+.header-actions .header-popover-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: background-color 150ms ease;
+}
+.header-popover-trigger:hover,
+.header-popover-trigger[aria-expanded="true"] {
+  background: #779c6720;
+}
+.header-popover-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.header-popover-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  border: 1px solid #dfe7e1;
+  border-radius: 12px;
+  background: #fff;
+  color: #263b30;
+  box-shadow: 0 14px 44px #132c2024;
+  text-align: left;
+  white-space: normal;
+  font-weight: 400;
+  z-index: 35;
+}
+.header-popover-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -13px;
+  height: 13px;
+}
+.header-popover-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e3e9de;
+}
+.header-popover-heading h2 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 650;
+}
+.header-popover-content {
+  padding: 12px;
+  max-height: min(540px, calc(100dvh - 160px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.header-popover-panel .customer-updates {
+  padding: 5px;
+}
+.header-popover-panel .customer-update {
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px 0;
+}
+.header-popover-panel .customer-update h3 {
+  font-size: 15px;
+}
+.site-header.is-scrolled .header-actions .header-popover-panel button:hover,
+.site-header.is-scrolled .header-actions .header-popover-panel a:hover {
+  color: #285731;
+}
+.header-wallet-balances {
+  display: grid;
+  gap: 10px;
+}
+.header-wallet-balance {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 15px;
+  background: #f2f6ed;
+  border-radius: 8px;
+}
+.header-wallet-balance strong,
+.header-wallet-balance small {
+  display: block;
+}
+.header-wallet-balance strong {
+  font-size: 21px;
+  margin: 4px 0;
+}
+.header-wallet-balance small {
+  color: #65745e;
+  font-size: 12px;
+}
+.header-wallet-note {
+  color: #65745e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.header-wallet-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 5px 5px;
+  color: #285731;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+@media (max-width: 600px) {
+  .header-actions .header-popover-trigger {
+    width: 30px;
+    height: 32px;
+  }
+}

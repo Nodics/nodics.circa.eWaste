@@ -7,7 +7,7 @@ export type Facts = {
   conditionGrade?: string;
   quantity?: number;
   preferredCollectionPointCode?: string;
-  sizeClass?: "SMALL" | "MEDIUM" | "HEAVY" | "UNKNOWN";
+  sizeClass?: "SMALL" | "MEDIUM" | "LARGE" | "BULKY" | "HEAVY" | "UNKNOWN";
   weight?: string;
   brand?: string;
   model?: string;
@@ -31,12 +31,14 @@ export type EnvironmentalAssessment = {
   assessedAt: string;
   publicClaimAllowed: false;
   indicators: EnvironmentalIndicator[];
-  inputs?: { weightKg?: number; weightSource?: string; quantity?: number; defaultUnitWeightKg?: number };
-  factors?: { factorKgCO2ePerKg?: number; factorSource?: string; factorSetVersion?: string };
+  inputs?: { weightKg?: number; weightSource?: string; quantity?: number; defaultUnitWeightKg?: number; weightMinKg?: number; weightMaxKg?: number; weightBasis?: string; weightConfidence?: number; itemTypeCode?: string; categoryCode?: string };
+  factors?: { factorKgCO2ePerKg?: number; factorSource?: string; factorSetVersion?: string; savingsMinKgCO2e?: number; savingsMaxKgCO2e?: number; baselineFactor?: number; treatmentFactor?: number; sourceFactorUnit?: string };
   methodology: {
     formulaVersion: string | null;
     profileCode: string;
     providerCode: string | null;
+    providerVersion?: string;
+    assessmentBasis?: string;
     isMock: boolean;
     methodologyRef?: string;
     factorDatasetRef?: string;
@@ -49,7 +51,20 @@ export type EnvironmentalAssessment = {
   };
   carbonCredits: { status: "NOT_ASSESSED"; issuedQuantity: null; registryReference: null; reason: string };
 };
+export type DescriptorRange = { min: number | null; max: number | null; unit: string; basis: string; confidence?: number | null };
+export type ItemDescriptor = {
+  evidenceReview?: { manualApprovalRequired: boolean; manualApprovalRecorded: boolean; label: string; message: string | null; customerMessage?: string; reason: string | null; sourceLabel: string };
+  contractVersion: 1; code: string; status: string; stage: string; requiresClassificationReview?: boolean;
+  identity: { name: string | null; description: string | null; brand: string | null; model: string | null };
+  classification: Record<'family' | 'category' | 'itemType', { code: string | null; name: { en?: string } | string | null }>;
+  physical: { quantity: number | null; size: { value: string; basis: string }; weight: { value: string | null; unit: string; basis: string }; weightEstimate: DescriptorRange; dimensionsEstimate: Record<'length' | 'width' | 'height', DescriptorRange> | null };
+  materials: { ref: Ref; name: { en?: string } | string | null; kind: string; basis: string; confidence: number | null }[];
+  condition: { value: string; basis: string };
+  environment: { assessment: EnvironmentalAssessment | null; provisional: boolean; observations: { recyclability: { value: string; basis: string }; contamination: { value: string; basis: string }; recoveryPotential: { value: string; basis: string }; hazards: { code: string; basis: string }[] } };
+  review: { decision: string | null; comment: string | null; reviewedAt: string | null };
+};
 export type Submission = {
+  descriptor?: ItemDescriptor;
   code: string;
   revision: number;
   submissionStatus: string;
@@ -99,6 +114,7 @@ export type Submission = {
   };
 };
 export type Asset = {
+  descriptor?: ItemDescriptor;
   code: string;
   revision: number;
   assetStatus: string;
@@ -179,6 +195,17 @@ export type Wallet = {
   }[];
 };
 export type Offer = {
+  gallery?: { url: string; alt?: string }[];
+  category?: { code: string; label: string } | null;
+  condition?: string | null;
+  available?: boolean;
+  terms?: string[];
+  eligibility?: string[];
+  exclusions?: string[];
+  redemptionInstructions?: string[];
+  purchaseConditions?: string[];
+  saleMode?: string;
+  descriptor?: ItemDescriptor;
   code: string;
   name: string;
   issuer?: string;
@@ -226,9 +253,12 @@ export async function request<T>(
   session?: Session | null,
   body?: unknown,
   method = body === undefined ? "GET" : "POST",
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<T> {
   const controller = new AbortController();
+  const cancel = () => controller.abort();
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  if (options.signal?.aborted) cancel();
   const timer = setTimeout(
     () => controller.abort(),
     options.timeoutMs ?? 60000,
@@ -262,6 +292,7 @@ export async function request<T>(
       );
     }
   } catch (cause) {
+    if (options.signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
     if (controller.signal.aborted)
       throw new ApiError(
         "The connection is taking too long. Please try again; your saved progress is retained.",
@@ -274,6 +305,7 @@ export async function request<T>(
     );
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", cancel);
   }
   if (
     !response.ok ||
@@ -345,7 +377,7 @@ export function commandKey(): string {
 export function nameOf(value?: { en?: string } | string): string {
   return typeof value === "string" ? value : value?.en || "";
 }
-export function photoOf(asset: Asset | Submission): string {
+export function photoOf(asset: { metadata?: { photo?: { url?: string } } }): string {
   return asset.metadata?.photo?.url || "/media/asset-laptop.svg";
 }
 export function statusLabel(status: string): string {
@@ -374,3 +406,6 @@ export function originalRewardOf(asset: Asset): string | number {
     "Unavailable"
   );
 }
+
+export type SavedImpactAssessment = { code: string; accepted: boolean; calculatedAt: string; calculationStatus: string; assessment: EnvironmentalAssessment | null; reason?: string | null };
+export type ImpactAssessmentHistory = { acceptedAssessmentCode: string | null; total: number; page: number; limit: number; items: SavedImpactAssessment[]; selectionHistory?: { total: number; items: { code: string; assessmentCode: string; at: string; reason: string }[] } };

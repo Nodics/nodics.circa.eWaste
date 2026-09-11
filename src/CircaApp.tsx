@@ -1,8 +1,21 @@
+import {
+  CataloguePage,
+  CatalogueProductPage,
+} from "./features/catalogue/CataloguePage";
+import { AccountDashboard } from "./AccountDashboard";
+import { CustomerWallet, HeaderWallet } from "./CustomerWallet";
+import { CustomerWasteWorkspace } from "./features/waste/CustomerWasteWorkspace";
+import {
+  AccountMenu,
+  AccountSectionPage,
+  readAccountSection,
+} from "./AccountSections";
 import { CircaBrand as Brand } from "./CircaBrand";
 import { CustomerAuthentication } from "./CustomerAuthentication";
-import { OutcomeInbox } from './OutcomeInbox';
+import { CustomerUpdates, OutcomeInbox } from "./OutcomeInbox";
+import { HeaderPopoverGroup } from "./HeaderPopover";
 import { ReviewDialog as Dialog } from "./ReviewDialog";
-import { BidComposer, BidHistory } from "./BidsPanel";
+import { BidComposer } from "./BidsPanel";
 import {
   contentText as text,
   contentItems as items,
@@ -12,8 +25,6 @@ import {
   usePublishedPage,
   type Content,
 } from "./cms";
-import { PrivatePhoto } from "./PrivatePhoto";
-import { PurchaseHistory } from "./PurchaseHistory";
 import {
   useCallback,
   useEffect,
@@ -38,7 +49,6 @@ import {
   Sparkles,
   Ticket,
   Users,
-  Wallet as WalletIcon,
   X,
 } from "lucide-react";
 import {
@@ -46,21 +56,17 @@ import {
   APP_API,
   commandKey,
   nameOf,
-  originalRewardOf,
   readSession,
   restoreSession,
   endSession,
   request,
   saveSession,
   statusLabel,
-  type Account,
-  type Asset,
   type Centre,
   type Experience,
   type Market,
   type Offer,
   type Session,
-  type Submission,
   type Wallet,
 } from "./api";
 import { CollectionMap } from "./CollectionMap";
@@ -86,11 +92,29 @@ function ErrorNotice({ error, retry }: { error: string; retry?: () => void }) {
     </div>
   ) : null;
 }
-export function Login({onClose,onLogin,sample}:{onClose:()=>void;onLogin:(session:Session)=>void|Promise<void>;sample:boolean}) {
-  const [register,setRegister]=useState(false);
-  return <Dialog title={register?"Create your Circa account":"Welcome back"} onClose={onClose}>
-    <CustomerAuthentication onLogin={onLogin} sample={sample} showTitle={false} onModeChange={setRegister}/>
-  </Dialog>;
+export function Login({
+  onClose,
+  onLogin,
+  sample,
+}: {
+  onClose: () => void;
+  onLogin: (session: Session) => void | Promise<void>;
+  sample: boolean;
+}) {
+  const [register, setRegister] = useState(false);
+  return (
+    <Dialog
+      title={register ? "Create your Circa account" : "Welcome back"}
+      onClose={onClose}
+    >
+      <CustomerAuthentication
+        onLogin={onLogin}
+        sample={sample}
+        showTitle={false}
+        onModeChange={setRegister}
+      />
+    </Dialog>
+  );
 }
 
 function Hero({
@@ -217,8 +241,7 @@ function WalletBand({
             </span>
             <span className="carbon">
               <Leaf size={19} />
-              <strong>{balance("circaCarbon")}</strong> illustrative carbon
-              units
+              <strong>{balance("circaCarbon")}</strong> carbon units
             </span>
           </>
         ) : (
@@ -317,7 +340,7 @@ function OfferCard({ offer }: { offer: Offer }) {
           {offer.kind === "ASSET" ? (
             <>
               <Leaf size={14} />
-              {offer.carbonUnits ?? 0} illustrative carbon units
+              {offer.carbonUnits ?? 0} carbon units
             </>
           ) : offer.expiresAt ? (
             `Valid until ${new Date(offer.expiresAt).toLocaleDateString("en-GB")}`
@@ -544,264 +567,30 @@ function MessageIcon() {
   );
 }
 function AccountPage({
-  account,
-  error,
-  onResume,
-  onRefresh,
   session,
+  onResume,
+  detail,
+  revision,
 }: {
   session: Session;
-  account: Account | null;
-  error: string;
   onResume: (code: string) => void;
-  onRefresh: () => void;
+  detail: boolean;
+  revision: number;
 }) {
-  const [filter, setFilter] = useState("ALL"),
-    [detail, setDetail] = useState<Submission | null>(null),
-    [tab, setTab] = useState("submissions");
-  const submitted =
-    account?.submissions.filter((s) =>
-      ["APPROVED", "SUBMITTED", "REJECTED", "UNDER_REVIEW"].includes(
-        s.submissionStatus,
-      ),
-    ) || [];
   return (
-    <main className="container account-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">Your circular journey</span>
-          <h1>My Account</h1>
-          <p>{account?.customer.loginId}</p>
-        </div>
-        <a className="secondary" href="/wallet">
-          <WalletIcon size={17} /> Open wallet
+    <main
+      className={`container account-page ${detail ? "account-item-page" : ""}`}
+    >
+      {!detail && (
+        <a className="account-section-back" href="/account">
+          Back to dashboard
         </a>
-      </div>
-      <ErrorNotice error={error} retry={onRefresh} />
-      {!account && !error ? (
-        <p role="status">Loading your account…</p>
-      ) : (
-        account && (
-          <>
-            <OutcomeInbox session={session} />
-            <div className="account-stats">
-              {[
-                ["Submitted", submitted.length],
-                [
-                  "Approved",
-                  submitted.filter((s) => s.submissionStatus === "APPROVED")
-                    .length,
-                ],
-                [
-                  "Awaiting approval",
-                  submitted.filter((s) =>
-                    ["SUBMITTED", "UNDER_REVIEW"].includes(s.submissionStatus),
-                  ).length,
-                ],
-                [
-                  "Rejected",
-                  submitted.filter((s) => s.submissionStatus === "REJECTED")
-                    .length,
-                ],
-              ].map(([label, total]) => (
-                <div key={label}>
-                  <span>{label}</span>
-                  <strong>{total}</strong>
-                </div>
-              ))}
-            </div>
-            <div className="account-tabs">
-              {["submissions", "assets", "activity"].map((v) => (
-                <button
-                  className={tab === v ? "active" : ""}
-                  onClick={() => setTab(v)}
-                  key={v}
-                >
-                  {v === "assets"
-                    ? "Owned assets"
-                    : v === "activity"
-                      ? "Ownership activity"
-                      : "Submissions"}
-                </button>
-              ))}
-            </div>
-            {tab === "submissions" ? (
-              <>
-                <div className="filter-toolbar">
-                  <h2>Your submissions</h2>
-                  <label>
-                    Status
-                    <select
-                      aria-label="Submission status filter"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                    >
-                      {[
-                        "ALL",
-                        "APPROVED",
-                        "SUBMITTED",
-                        "REJECTED",
-                        "DRAFT",
-                      ].map((v) => (
-                        <option key={v} value={v}>
-                          {v === "ALL" ? "All statuses" : statusLabel(v)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="submission-grid">
-                  {account.submissions
-                    .filter(
-                      (s) =>
-                        filter === "ALL" ||
-                        (filter === "DRAFT"
-                          ? !["SUBMITTED", "APPROVED", "REJECTED"].includes(
-                              s.submissionStatus,
-                            )
-                          : s.submissionStatus === filter),
-                    )
-                    .map((s) => (
-                      <article className="submission-card" key={s.code}>
-                        <PrivatePhoto
-                          record={s}
-                          kind="submissions"
-                          session={session}
-                          alt={s.submittedFacts.name || "Submission photo"}
-                        />
-                        <div>
-                          <span
-                            className={`status ${s.submissionStatus.toLowerCase()}`}
-                          >
-                            {statusLabel(s.submissionStatus)}
-                          </span>
-                          <h3>
-                            {s.submittedFacts.name ||
-                              "New electronics submission"}
-                          </h3>
-                          <p>
-                            {new Date(
-                              s.metadata?.submittedAt || Date.now(),
-                            ).toLocaleDateString("en-GB")}{" "}
-                            · {s.code.slice(-12)}
-                          </p>
-                          {s.metadata?.publicReason && (
-                            <p className="rejection-reason">
-                              {s.metadata.publicReason}
-                            </p>
-                          )}
-                          <button
-                            className="text-button"
-                            onClick={() => setDetail(s)}
-                          >
-                            View details <ArrowUpRight size={16} />
-                          </button>
-                          {![
-                            "APPROVED",
-                            "SUBMITTED",
-                            "REJECTED",
-                            "UNDER_REVIEW",
-                          ].includes(s.submissionStatus) && (
-                            <button
-                              className="secondary"
-                              onClick={() => onResume(s.code)}
-                            >
-                              Continue draft
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                </div>
-              </>
-            ) : tab === "assets" ? (
-              <>
-                <div className="filter-toolbar">
-                  <h2>Owned assets</h2>
-                  <span>{account.assets.length} assets</span>
-                </div>
-                <div className="submission-grid">
-                  {account.assets.map((a) => (
-                    <article className="submission-card" key={a.code}>
-                      <PrivatePhoto
-                        record={a}
-                        kind="assets"
-                        session={session}
-                        alt={a.metadata.facts.name || a.code}
-                      />
-                      <div>
-                        <span className="status approved">
-                          {statusLabel(a.assetStatus)}
-                        </span>
-                        <h3>{a.metadata.facts.name}</h3>
-                        <p>
-                          {a.metadata.illustrativeCarbonUnits || 0} illustrative
-                          carbon units
-                        </p>
-                        <a
-                          className="text-link"
-                          href={`/account/assets/${encodeURIComponent(a.code)}`}
-                        >
-                          Manage asset <ArrowUpRight size={16} />
-                        </a>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="activity-list">
-                {account.events.length ? (
-                  account.events.map((ev) => (
-                    <div key={ev.code}>
-                      <ShieldCheck size={18} />
-                      <span>
-                        {ev.eventType || "Ownership recorded"}
-                        <small>{ev.code}</small>
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p>No ownership changes yet.</p>
-                )}
-              </div>
-            )}
-          </>
-        )
       )}
-      {detail && (
-        <Dialog
-          title={detail.submittedFacts.name || "Submission details"}
-          onClose={() => setDetail(null)}
-        >
-          <PrivatePhoto
-            className="detail-photo"
-            record={detail}
-            kind="submissions"
-            session={session}
-            alt="Submission evidence"
-          />
-          <span className={`status ${detail.submissionStatus.toLowerCase()}`}>
-            {statusLabel(detail.submissionStatus)}
-          </span>
-          <p>
-            {detail.submittedFacts.description || "No additional description."}
-          </p>
-          <dl>
-            <dt>Reference</dt>
-            <dd>{detail.code}</dd>
-            <dt>Quantity</dt>
-            <dd>{detail.submittedFacts.quantity || 1}</dd>
-            <dt>Collection centre</dt>
-            <dd>{detail.submittedFacts.preferredCollectionPointCode}</dd>
-          </dl>
-          {detail.metadata.publicReason && (
-            <p className="rejection-reason">
-              Review feedback: {detail.metadata.publicReason}
-            </p>
-          )}
-        </Dialog>
-      )}
+      <CustomerWasteWorkspace
+        session={session}
+        onContinue={onResume}
+        revision={revision}
+      />
     </main>
   );
 }
@@ -830,153 +619,12 @@ function WalletPage({
       {!wallet && !error ? (
         <p role="status">Loading your wallet…</p>
       ) : (
-        wallet && (
-          <>
-            <div className="wallet-cards">
-              {[
-                { code: "points", label: "Reward points", Icon: Coins },
-                {
-                  code: "circaCarbon",
-                  label: "Illustrative carbon units",
-                  Icon: Leaf,
-                },
-              ].map(({ code, label, Icon }) => {
-                const b = wallet.balances.find(
-                  (v) => v.rewardTypeCode === code,
-                );
-                return (
-                  <article
-                    key={code}
-                    className={code === "points" ? "points" : "carbon"}
-                  >
-                    <Icon size={26} />
-                    <h2>{label}</h2>
-                    <strong>{b?.available || 0}</strong>
-                    <p>Available · {b?.reserved || 0} held</p>
-                  </article>
-                );
-              })}
-            </div>
-            <p className="sample-note">
-              Carbon units in this local sample are illustrative and are not
-              certified carbon credits.
-            </p>
-            <h2>Transaction history</h2>
-            <div className="ledger">
-              {wallet.entries.map((entry) => (
-                <div key={entry.code}>
-                  <span className="ledger-icon">
-                    {entry.rewardTypeCode === "points" ? (
-                      <Coins size={20} />
-                    ) : (
-                      <Leaf size={20} />
-                    )}
-                  </span>
-                  <span>
-                    <strong>
-                      {entry.entryType.replaceAll("_", " ").toLowerCase()}
-                    </strong>
-                    <small>
-                      {entry.sourceCode} ·{" "}
-                      {new Date(entry.postedAt).toLocaleDateString("en-GB")}
-                    </small>
-                  </span>
-                  <span>
-                    <strong>{entry.amount}</strong>
-                    <small>
-                      {entry.rewardTypeCode === "points"
-                        ? "points"
-                        : "carbon units"}
-                    </small>
-                  </span>
-                </div>
-              ))}
-              {!wallet.entries.length && (
-                <p>
-                  Your first transaction will appear here after approval or a
-                  purchase.
-                </p>
-              )}
-            </div>
-          </>
-        )
+        wallet && <CustomerWallet wallet={wallet} />
       )}
     </main>
   );
 }
-function ShopPage({
-  offers,
-  kind,
-  loading,
-  error,
-}: {
-  offers: Offer[];
-  kind: "ASSET" | "COUPON";
-  loading: boolean;
-  error: string;
-}) {
-  const [query, setQuery] = useState(""),
-    [sort, setSort] = useState("featured");
-  let visible = offers.filter((o) =>
-    (o.name + " " + o.issuer).toLowerCase().includes(query.toLowerCase()),
-  );
-  if (sort === "price")
-    visible = [...visible].sort((a, b) => a.rewardPrice - b.rewardPrice);
-  return (
-    <main className="container shop-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">
-            {kind === "ASSET"
-              ? "The circular marketplace"
-              : "Rewards with possibilities"}
-          </span>
-          <h1>
-            {kind === "ASSET"
-              ? "Find its next chapter."
-              : "Something good awaits."}
-          </h1>
-          <p>
-            {kind === "ASSET"
-              ? "Browse verified assets and keep their value in circulation."
-              : "Choose a partner offer and put your reward points to work."}
-          </p>
-        </div>
-      </div>
-      <div className="shop-filters">
-        <input
-          aria-label="Search marketplace"
-          placeholder="Search by name or partner"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <select
-          aria-label="Sort offers"
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-        >
-          <option value="featured">Featured</option>
-          <option value="price">Points: low to high</option>
-        </select>
-        <span>{visible.length} available</span>
-      </div>
-      <ErrorNotice error={error} />
-      {loading ? (
-        <p role="status">Loading marketplace…</p>
-      ) : (
-        <div className="shop-grid">
-          {visible.map((o) => (
-            <OfferCard key={o.code} offer={o} />
-          ))}
-          {!visible.length && !error && (
-            <p>No matching offers. Try a different search.</p>
-          )}
-        </div>
-      )}
-    </main>
-  );
-}
-function TransactionPage({
+export function TransactionPage({
   offer,
   session,
   wallet,
@@ -1002,99 +650,66 @@ function TransactionPage({
     wallet?.balances.find((b) => b.rewardTypeCode === "points")?.available || 0,
   );
   return (
-    <main className="container detail-page">
-      <a
-        className="back-link"
-        href={offer.kind === "ASSET" ? "/shop" : "/coupons"}
-      >
-        <ChevronLeft size={16} />
-        Back to {offer.kind === "ASSET" ? "assets" : "coupons"}
-      </a>
-      <div className="detail-layout">
-        <img
-          className="detail-main-image"
-          src={publishedArtwork(offer.imageUrl || "/media/asset-laptop.svg")}
-          alt={offer.name}
-        />
-        <div>
-          <span className="eyebrow">{offer.issuer || "Circa community"}</span>
-          <h1>{offer.name}</h1>
-          <p>{offer.description}</p>
-          <div className="detail-price">
-            <Coins size={24} />
-            <strong>{offer.rewardPrice}</strong> reward points
-          </div>
-          {offer.kind === "ASSET" ? (
+    <section className="catalogue-purchase">
+      {result ? (
+        <div className="purchase-receipt" role="status">
+          <Check size={30} />
+          <h2>
+            {offer.kind === "ASSET"
+              ? "The asset is now yours."
+              : "Your coupon is ready."}
+          </h2>
+          <p>{result.message}</p>
+          <p>Reference: {result.code}</p>
+          {result.entitlementCode && (
             <p>
-              <Leaf size={16} /> {offer.carbonUnits || 0} illustrative carbon
-              units move with the asset.
-            </p>
-          ) : (
-            <p>
-              Redeem the issued coupon with its partner. Carbon balance stays
-              unchanged for this sample offer.
+              Coupon: <strong>{result.entitlementCode}</strong>
             </p>
           )}
-          <p className="sample-note">
-            Local sample{" "}
-            {offer.kind === "ASSET"
-              ? "digital asset ownership. No physical delivery is included."
-              : "offer. No real-world merchant redemption is promised."}
-          </p>
-          {result ? (
-            <div className="purchase-receipt" role="status">
-              <Check size={30} />
-              <h2>
-                {offer.kind === "ASSET"
-                  ? "The asset is now yours."
-                  : "Your coupon is ready."}
-              </h2>
-              <p>{result.message}</p>
-              <p>Reference: {result.code}</p>
-              {result.entitlementCode && (
-                <p>
-                  Coupon: <strong>{result.entitlementCode}</strong>
-                </p>
-              )}
-              <a className="primary" href="/account">
-                Go to My Account
-              </a>
-            </div>
-          ) : (
+          <a className="primary" href="/account">
+            Go to My Account
+          </a>
+        </div>
+      ) : (
+        <>
+          <ErrorNotice error={error} />
+          {session ? (
             <>
-              <ErrorNotice error={error} />
-              {session ? (
-                <>
-                  <p>
-                    Your available balance:{" "}
-                    {wallet ? `${balance} points` : "Loading…"}
-                  </p>
-                  {offer.ownerCode === wallet?.wallet.ownerCode ? (
-                    <p>You own this asset.</p>
-                  ) : (
-                    <button
-                      className="primary"
-                      disabled={!wallet || balance < offer.rewardPrice || busy}
-                      onClick={() => setReview(true)}
-                    >
-                      Review{" "}
-                      {offer.kind === "ASSET" ? "purchase" : "coupon purchase"}{" "}
-                      <ArrowRight size={16} />
-                    </button>
-                  )}
-                  {wallet && balance < offer.rewardPrice && (
-                    <p>More points are needed for this purchase.</p>
-                  )}
-                </>
+              <p>
+                Your available balance:{" "}
+                {wallet ? `${balance} points` : "Loading…"}
+              </p>
+              {offer.kind === "ASSET" &&
+              offer.ownerCode &&
+              offer.ownerCode === wallet?.wallet.ownerCode ? (
+                <p>You own this asset.</p>
               ) : (
-                <button className="primary" onClick={onLogin}>
-                  Sign in to continue
+                <button
+                  className="primary"
+                  disabled={
+                    !wallet ||
+                    balance < offer.rewardPrice ||
+                    busy ||
+                    offer.available === false
+                  }
+                  onClick={() => setReview(true)}
+                >
+                  Review{" "}
+                  {offer.kind === "ASSET" ? "purchase" : "coupon purchase"}{" "}
+                  <ArrowRight size={16} />
                 </button>
               )}
+              {wallet && balance < offer.rewardPrice && (
+                <p>More points are needed for this purchase.</p>
+              )}
             </>
+          ) : (
+            <button className="primary" onClick={onLogin}>
+              Sign in to continue
+            </button>
           )}
-        </div>
-      </div>
+        </>
+      )}
       {offer.kind === "ASSET" &&
         offer.biddingAvailable &&
         session &&
@@ -1120,14 +735,14 @@ function TransactionPage({
             </dt>
             <dd>
               {offer.kind === "ASSET"
-                ? `${offer.carbonUnits || 0} illustrative units transfer with the asset. Original approval rewards remain with the contributor.`
+                ? `${offer.carbonUnits || 0} carbon units transfer with the asset. Original approval rewards remain with the contributor.`
                 : "Unchanged for this offer."}
             </dd>
           </dl>
           <ErrorNotice error={error} />
           <button
             className="primary full"
-            disabled={busy}
+            disabled={busy || offer.available === false}
             onClick={async () => {
               setBusy(true);
               setError("");
@@ -1155,7 +770,7 @@ function TransactionPage({
           </button>
         </Dialog>
       )}
-    </main>
+    </section>
   );
 }
 
@@ -1164,8 +779,6 @@ export function CircaApp() {
     [session, setSession] = useState<Session | null>(readSession),
     [experience, setExperience] = useState<Experience | null>(null),
     [experienceError, setExperienceError] = useState(""),
-    [account, setAccount] = useState<Account | null>(null),
-    [accountError, setAccountError] = useState(""),
     [wallet, setWallet] = useState<Wallet | null>(null),
     [walletError, setWalletError] = useState(""),
     [market, setMarket] = useState<Market>({ assets: [], coupons: [] }),
@@ -1188,8 +801,19 @@ export function CircaApp() {
   const refreshAll = useCallback(() => setRefresh((v) => v + 1), []);
   useEffect(() => {
     let active = true;
-    void restoreSession().then(value => { if (active) setSession(value); }).catch(() => { if (active) setAccountError("Your session could not be restored. Please sign in again."); });
-    return () => { active = false; };
+    void restoreSession()
+      .then((value) => {
+        if (active) setSession(value);
+      })
+      .catch(() => {
+        if (active)
+          setExperienceError(
+            "Your session could not be restored. Please sign in again.",
+          );
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   useEffect(() => {
     const updateHeader = () => setHeaderIsScrolled(window.scrollY > 48);
@@ -1198,7 +822,33 @@ export function CircaApp() {
     return () => window.removeEventListener("scroll", updateHeader);
   }, []);
   useEffect(() => {
-    const handler = () => setPath(window.location.pathname);
+    const handler = () => {
+      const url = new URL(window.location.href);
+      if (
+        url.pathname === "/account" &&
+        [
+          "view",
+          "status",
+          "q",
+          "categoryCode",
+          "itemTypeCode",
+          "dateFrom",
+          "dateTo",
+          "sort",
+          "page",
+          "limit",
+        ].some((key) => url.searchParams.has(key))
+      ) {
+        url.pathname = "/account/items";
+        history.replaceState(
+          history.state,
+          "",
+          url.pathname + url.search + url.hash,
+        );
+      }
+      setPath(window.location.pathname);
+    };
+    handler();
     window.addEventListener("popstate", handler);
     const click = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest("a");
@@ -1215,8 +865,9 @@ export function CircaApp() {
       const url = new URL(link.href);
       if (url.origin !== location.origin) return;
       e.preventDefault();
-      history.pushState({}, "", url.pathname + url.hash);
-      setPath(url.pathname);
+      history.pushState({}, "", url.pathname + url.search + url.hash);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      setPath(window.location.pathname);
       setMenu(false);
       if (url.hash)
         setTimeout(
@@ -1253,6 +904,10 @@ export function CircaApp() {
   useEffect(() => {
     let active = true;
     setMarketLoading(true);
+    if (path !== "/") {
+      setMarketLoading(false);
+      return;
+    }
     request<Market>(`${API}/marketplace`)
       .then((d) => {
         if (active) {
@@ -1269,19 +924,11 @@ export function CircaApp() {
     return () => {
       active = false;
     };
-  }, [refresh]);
+  }, [refresh, path]);
   useEffect(() => {
     let active = true;
-    setAccountError("");
     setWalletError("");
     if (session) {
-      request<Account>(`${API}/account`, session)
-        .then((d) => {
-          if (active) setAccount(d);
-        })
-        .catch((e) => {
-          if (active) setAccountError(e.message);
-        });
       request<Wallet>(`${API}/wallet`, session)
         .then((d) => {
           if (active) setWallet(d);
@@ -1300,33 +947,27 @@ export function CircaApp() {
     path.startsWith("/coupons") ||
     path === "/privacy" ||
     path === "/terms";
-  const detailCode = decodeURIComponent(path.split("/")[2] || ""),
-    liveOffer = [...market.assets, ...market.coupons].find(
-      (o) => o.code === detailCode,
+  let detailCode = "";
+  try {
+    detailCode = decodeURIComponent(
+      path.match(/^\/(?:shop|coupons)\/([^/]+)\/?$/)?.[1] || "",
     );
-  const offerSnapshot = useRef<Offer | null>(null);
-  if (liveOffer) offerSnapshot.current = liveOffer;
-  else if (offerSnapshot.current?.code !== detailCode)
-    offerSnapshot.current = null;
-  const offer = liveOffer || offerSnapshot.current;
-  const assetCode = decodeURIComponent(path.split("/")[3] || ""),
-    liveAsset = account?.assets.find((a) => a.code === assetCode);
-  const assetSnapshot = useRef<Asset | null>(null);
-  if (!session || !path.startsWith("/account/assets/"))
-    assetSnapshot.current = null;
-  else if (liveAsset) assetSnapshot.current = liveAsset;
-  else if (assetSnapshot.current?.code !== assetCode)
-    assetSnapshot.current = null;
+  } catch {
+    /* Malformed links render the unavailable-product state. */
+  }
   function onLogin(value: Session) {
     saveSession(value);
     setSession(value);
     setLogin(false);
   }
   function logout() {
-    void endSession().catch(() => setExperienceError("Server sign-out could not be confirmed. Reconnect and sign out again."));
+    void endSession().catch(() =>
+      setExperienceError(
+        "Server sign-out could not be confirmed. Reconnect and sign out again.",
+      ),
+    );
     saveSession(null);
     setSession(null);
-    setAccount(null);
     setWallet(null);
     setAssistant(false);
     setResumeCode(undefined);
@@ -1348,83 +989,82 @@ export function CircaApp() {
     );
   else if (path === "/account")
     page = (
+      <main className="container">
+        <AccountDashboard
+          session={session!}
+          revision={refresh}
+          onStart={submit}
+        />
+      </main>
+    );
+  else if (path === "/account/updates")
+    page = (
+      <main className="container">
+        <div className="account-section-page account-updates-page">
+          <a className="account-section-back" href="/account">
+            <ChevronLeft size={16} /> Back to dashboard
+          </a>
+          <h1>Your updates</h1>
+          <OutcomeInbox key={session!.token} session={session!} />
+        </div>
+      </main>
+    );
+  else if (readAccountSection(false, new URL(path, window.location.origin)))
+    page = (
+      <main className="container">
+        <AccountSectionPage
+          key={path + session!.token}
+          section={
+            readAccountSection(false, new URL(path, window.location.origin))!
+          }
+          session={session!}
+          onRefresh={refreshAll}
+        />
+      </main>
+    );
+  else if (
+    path === "/account/items" ||
+    path.startsWith("/account/submissions/") ||
+    path.startsWith("/account/assets/")
+  )
+    page = (
       <>
         <AccountPage
           session={session!}
-          account={account}
-          error={accountError}
-          onRefresh={refreshAll}
+          detail={path !== "/account/items"}
+          revision={refresh}
           onResume={(code) => {
             setResumeCode(code);
             setAssistant(true);
           }}
         />
-        {session && (
-          <div className="container">
-            <BidHistory
-              session={session}
-              customerCode={account?.customer.code || ""}
-              offers={market.assets}
-              assets={account?.assets || []}
-              wallet={wallet}
-              onComplete={refreshAll}
-            />
-            <PurchaseHistory session={session} offers={market.coupons} />
-          </div>
-        )}
       </>
     );
   else if (path === "/wallet")
     page = (
       <WalletPage wallet={wallet} error={walletError} onRefresh={refreshAll} />
     );
-  else if (path.startsWith("/account/assets/")) {
-    const asset = liveAsset || assetSnapshot.current;
-    page = asset ? (
-      <OwnedAssetPage
-        key={asset.code}
-        asset={asset}
-        session={session!}
-        onComplete={refreshAll}
-      />
-    ) : (
-      <main className="container page-heading">
-        <h1>{account ? "Asset not found" : "Loading asset…"}</h1>
-      </main>
-    );
-  } else if (path === "/shop" || path === "/coupons")
+  else if (path === "/shop" || path === "/coupons")
     page = (
-      <ShopPage
-        offers={path === "/shop" ? market.assets : market.coupons}
-        kind={path === "/shop" ? "ASSET" : "COUPON"}
-        loading={marketLoading}
-        error={marketError}
-      />
+      <CataloguePage key={path} kind={path === "/shop" ? "ASSET" : "COUPON"} />
     );
   else if (path.startsWith("/shop/") || path.startsWith("/coupons/"))
-    page = offer ? (
-      <TransactionPage
-        key={offer.code}
-        offer={offer}
-        session={session}
-        wallet={wallet}
-        onLogin={() => setLogin(true)}
-        onComplete={refreshAll}
+    page = (
+      <CatalogueProductPage
+        key={path}
+        code={detailCode}
+        kind={path.startsWith("/shop/") ? "ASSET" : "COUPON"}
+        renderPurchase={(offer) => (
+          <TransactionPage
+            key={offer.code}
+            offer={offer}
+            session={session}
+            wallet={wallet}
+            onLogin={() => setLogin(true)}
+            onComplete={refreshAll}
+          />
+        )}
       />
-    ) : (
-      <main className="container page-heading">
-        <h1>
-          {marketLoading
-            ? "Loading offer…"
-            : marketError
-              ? "Offers are temporarily unavailable"
-              : "This offer is no longer available."}
-        </h1>
-        <ErrorNotice error={marketError} retry={refreshAll} />
-        <a href={path.startsWith("/coupons") ? "/coupons" : "/shop"}>
-          Browse available offers
-        </a>
-      </main>
     );
   else if (path === "/privacy" || path === "/terms") {
     const policy = cms.page?.sections.find(
@@ -1588,12 +1228,15 @@ export function CircaApp() {
           <div className="header-actions">
             {session ? (
               <>
-                <a className="account-link" href="/account">
-                  My Account
-                </a>
-                <a className="wallet-link" aria-label="Wallet" href="/wallet">
-                  <WalletIcon size={20} />
-                </a>
+                <HeaderPopoverGroup>
+                  <AccountMenu path={path} />
+                  <CustomerUpdates session={session} />
+                  <HeaderWallet
+                    wallet={wallet}
+                    error={walletError}
+                    onRefresh={refreshAll}
+                  />
+                </HeaderPopoverGroup>
                 <button
                   className="icon-button"
                   aria-label="Log out"
@@ -1685,166 +1328,4 @@ export function CircaApp() {
 }
 function MapCount({ count }: { count?: number }) {
   return <>{count === undefined ? "Loading" : `${count} collection centres`}</>;
-}
-function OwnedAssetPage({
-  asset,
-  session,
-  onComplete,
-}: {
-  asset: Asset;
-  session: Session;
-  onComplete: () => void;
-}) {
-  const [mode, setMode] = useState<"list" | "gift" | null>(null),
-    [price, setPrice] = useState(""),
-    [recipient, setRecipient] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [receipt, setReceipt] = useState(""),
-    key = useRef(
-      asset.assetStatus === "LISTING_REQUESTED"
-        ? asset.metadata.listingIdempotencyKey || commandKey()
-        : asset.assetStatus === "GIFT_PENDING"
-          ? asset.metadata.pendingTransferEvent?.idempotencyKey || commandKey()
-          : commandKey(),
-    );
-  return (
-    <main className="container detail-page">
-      <a className="back-link" href="/account">
-        <ChevronLeft size={16} />
-        My Account
-      </a>
-      <div className="detail-layout">
-        <PrivatePhoto
-          className="detail-main-image"
-          record={asset}
-          kind="assets"
-          session={session}
-          alt={asset.metadata.facts.name || asset.code}
-        />
-        <div>
-          <span className="eyebrow">Your verified asset</span>
-          <h1>{asset.metadata.facts.name}</h1>
-          <p>{asset.metadata.facts.description}</p>
-          <span className="status approved">
-            {statusLabel(asset.assetStatus)}
-          </span>
-          <dl>
-            <dt>Original approval reward</dt>
-            <dd>
-              {originalRewardOf(asset)} points · stays with the original
-              contributor
-            </dd>
-            <dt>Attached carbon</dt>
-            <dd>
-              {asset.metadata.illustrativeCarbonUnits || 0} illustrative units ·
-              moves with ownership
-            </dd>
-            <dt>Reference</dt>
-            <dd>{asset.code}</dd>
-          </dl>
-          {receipt ? (
-            <p className="success-inline" role="status">
-              {receipt}
-            </p>
-          ) : (
-            <div className="action-row">
-              <button
-                className="primary"
-                disabled={asset.assetStatus === "LISTED"}
-                onClick={() => setMode("list")}
-              >
-                List for trade
-              </button>
-              <button
-                className="secondary"
-                disabled={asset.assetStatus === "LISTED"}
-                onClick={() => setMode("gift")}
-              >
-                Gift asset
-              </button>
-            </div>
-          )}
-          <p className="sample-note">
-            Local sample digital ownership. Physical custody remains separate.
-          </p>
-        </div>
-      </div>
-      {mode && (
-        <Dialog
-          title={mode === "list" ? "Review asset listing" : "Review asset gift"}
-          onClose={() => {
-            if (!busy) setMode(null);
-          }}
-        >
-          <p>{asset.metadata.facts.name}</p>
-          {mode === "list" ? (
-            <label>
-              Asking price in reward points
-              <input
-                type="number"
-                min="1"
-                max="100000"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-            </label>
-          ) : (
-            <label>
-              Recipient customer email
-              <input
-                type="email"
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-              />
-            </label>
-          )}
-          <p>
-            {mode === "gift"
-              ? "The recipient receives digital asset ownership and attached illustrative carbon. Your historical approval rewards stay with you."
-              : "Customers will see this price in the marketplace. Ownership changes only after a completed purchase."}
-          </p>
-          <ErrorNotice error={error} />
-          <button
-            className="primary full"
-            disabled={
-              busy ||
-              (mode === "list" ? !Number(price) : !recipient.includes("@"))
-            }
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                const result = await request<{ message: string }>(
-                  `${API}/assets/${asset.code}/${mode}`,
-                  session,
-                  {
-                    confirmed: true,
-                    expectedRevision: asset.revision,
-                    idempotencyKey: key.current,
-                    ...(mode === "list"
-                      ? { rewardPrice: Number(price) }
-                      : { recipientEmail: recipient }),
-                  },
-                );
-                setReceipt(result.message);
-                setMode(null);
-                onComplete();
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "Action failed.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy
-              ? "Saving…"
-              : mode === "list"
-                ? "Confirm listing"
-                : "Confirm gift"}
-          </button>
-        </Dialog>
-      )}
-    </main>
-  );
 }

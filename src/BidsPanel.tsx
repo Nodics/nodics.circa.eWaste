@@ -50,7 +50,7 @@ export function BidComposer({
       {result ? (
         <div role="status">
           <p>Your bid of {result.amount} points is awaiting the seller.</p>
-          <a className="text-link" href="/account">
+          <a className="text-link" href="/account/bids">
             Manage your bids in My Account
           </a>
         </div>
@@ -138,6 +138,7 @@ export function BidHistory({
   assets,
   wallet,
   onComplete,
+  headingLevel: Heading = "h2",
 }: {
   session: Session;
   customerCode: string;
@@ -145,6 +146,7 @@ export function BidHistory({
   assets: Asset[];
   wallet: Wallet | null;
   onComplete: () => void;
+  headingLevel?: "h1" | "h2";
 }) {
   const [data, setData] = useState<Bid[] | null>(null),
     [error, setError] = useState(""),
@@ -189,7 +191,7 @@ export function BidHistory({
   return (
     <section className="purchase-history">
       <div className="filter-toolbar">
-        <h2>Your bids</h2>
+        <Heading>Your bids</Heading>
         <button
           className="text-button"
           onClick={() => setRefresh((n) => n + 1)}
@@ -321,7 +323,7 @@ export function BidHistory({
           <p>{selected.bid.amount} reward points</p>
           <p>
             {selected.action === "PURCHASE"
-              ? "Checkout pays the seller and transfers the asset with its attached illustrative carbon. Original approval rewards stay with the contributor."
+              ? "Checkout pays the seller and transfers the asset with its attached carbon. Original approval rewards stay with the contributor."
               : selected.action === "ACCEPT"
                 ? "Accept this offered price. No points move until the buyer completes Checkout."
                 : selected.action === "WITHDRAW"

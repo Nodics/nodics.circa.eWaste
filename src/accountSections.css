@@ -1,0 +1,155 @@
+.account-menu-links {
+  color: #263b30;
+}
+.account-menu-links a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 11px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #263b30;
+}
+.account-menu-links a:hover,
+.account-menu-links a[aria-current="page"] {
+  background: #f0f4eb;
+}
+.site-header.is-scrolled .header-actions .account-menu-links a:hover {
+  color: #263b30;
+}
+.account-menu-links a > svg,
+.account-destinations a > svg {
+  flex-shrink: 0;
+}
+.account-menu-links strong,
+.account-menu-links small,
+.account-destinations strong,
+.account-destinations small {
+  display: block;
+}
+.account-menu-links strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.account-menu-links small {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #6c7970;
+}
+.account-section-page {
+  padding: 32px 0 72px;
+  min-height: 55vh;
+}
+.account-section-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #536653;
+  font-size: 13px;
+  text-decoration: none;
+  margin-bottom: 26px;
+}
+.account-section-page .purchase-history {
+  padding: 0;
+  margin: 0;
+}
+.account-section-page h1 {
+  margin: 0 0 18px;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.account-section-page .filter-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.account-section-page .filter-toolbar h1 {
+  margin-bottom: 0;
+}
+.account-section-page .filter-toolbar + p,
+.account-activity > p {
+  color: #6c7970;
+  line-height: 1.7;
+}
+.account-section-empty {
+  padding: 40px 24px;
+  margin-top: 30px;
+  border: 1px solid #e3e7df;
+  border-radius: 10px;
+  text-align: center;
+  color: #6c7970;
+}
+.account-section-empty h2 {
+  color: #263b30;
+  font-size: 19px;
+}
+.account-destinations {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0;
+}
+.account-destinations a {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 18px 14px;
+  color: #263b30;
+  background: white;
+  border: 1px solid #dfe7e1;
+  border-radius: 10px;
+  text-decoration: none;
+}
+.account-destinations a > span {
+  flex: 1;
+  min-width: 0;
+}
+.account-destinations strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.account-destinations small {
+  margin-top: 5px;
+  color: #6c7970;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mobile-app .account-section-mobile {
+  padding: 0 0 28px;
+}
+.mobile-app .account-section-mobile h1 {
+  font-size: 30px;
+}
+.mobile-app .account-section-mobile .submission-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.mobile-app .account-section-mobile .conversation-card {
+  min-width: 0;
+}
+.mobile-app .account-section-mobile .ledger > div {
+  min-width: 0;
+  gap: 10px;
+}
+.mobile-app .account-section-mobile small,
+.mobile-app .account-section-mobile .coupon-token {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) {
+  .account-menu {
+    position: static;
+  }
+  .account-menu-trigger {
+    font-size: 12px;
+  }
+  .account-menu-links {
+    right: 20px;
+    top: calc(100% + 8px);
+    max-width: calc(100vw - 40px);
+  }
+  .account-section-page {
+    padding-top: 24px;
+  }
+}

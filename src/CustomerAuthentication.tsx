@@ -5,7 +5,6 @@ import { APP_API, request, type Session } from "./api";
 /** Shared Web and embedded-channel authentication. Profile owns credentials and sessions; each host completes its verified channel link after successful sign-in. */
 export function CustomerAuthentication({
   onLogin,
-  sample = false,
   onModeChange,
   showTitle = true,
 }: {
@@ -144,14 +143,7 @@ export function CustomerAuthentication({
           {register ? "Sign in" : "Create an account"}
         </button>
       </p>
-      {sample && (
-        <div className="sample-login">
-          <strong>Local sample account</strong>
-          <span>customer@circa.local</span>
-          <span>CircaDemo!2026</span>
-          <small>Sample assets and illustrative carbon units.</small>
-        </div>
-      )}
+
     </section>
   );
 }

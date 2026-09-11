@@ -14,15 +14,15 @@ const assessment: EnvironmentalAssessment = {
   methodology: { formulaVersion: "mock", profileCode: "test", providerCode: "test", isMock: true },
   carbonCredits: { status: "NOT_ASSESSED", issuedQuantity: null, registryReference: null, reason: "Credit issuance requires registry evidence." },
 };
-it("distinguishes simulations, missing values, measured zero and credit status", () => {
+it("keeps unvalidated historical values separate without unwanted application labels", () => {
   render(<EnvironmentalImpactCard assessment={assessment}/>);
-  expect(screen.getByText("Illustrative emissions saving")).toBeInTheDocument();
-  expect(screen.getByText(/not a verified emissions saving/)).toBeInTheDocument();
+  expect(screen.queryByText(/Illustrative|demo/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/A sourced assessment is needed/)).toBeInTheDocument();
   const water = screen.getByText("Water saved").parentElement!;
   expect(within(water).getByText("Not assessed")).toBeInTheDocument();
   expect(within(water).queryByText("0 L")).not.toBeInTheDocument();
-  expect(screen.getByText("0 kWh")).toBeInTheDocument();
-  expect(screen.getByText("Credit issuance requires registry evidence.")).toBeInTheDocument();
+  expect(screen.queryByText("0 kWh")).not.toBeInTheDocument();
+  expect(screen.queryByText("Carbon credits")).not.toBeInTheDocument();
   expect(screen.queryByText(/0 credits/i)).not.toBeInTheDocument();
 });
 it("supports old drafts without inventing environmental values", () => {
@@ -34,5 +34,15 @@ it("shows signed net impact and never treats assessment confirmation as credit c
   render(<EnvironmentalImpactCard assessment={{ ...assessment, status: "CONFIRMED", indicators: [{ ...assessment.indicators[0], key: "netEmissionsBenefit", label: "Net emissions benefit", value: "-2.5", status: "CONFIRMED" }], methodology: { ...assessment.methodology, isMock: false } }}/>);
   expect(screen.getByText("-2.5 kg CO₂e")).toBeInTheDocument();
   expect(screen.getByText(/emissions increase within/)).toBeInTheDocument();
-  expect(screen.getByText("Not assessed")).toBeInTheDocument();
+  expect(screen.queryByText("Carbon credits")).not.toBeInTheDocument();
+});
+
+it("shows potential savings, carbon equivalent and sourced range evidence without issuing credits", () => {
+  render(<EnvironmentalImpactCard assessment={{ ...assessment, status: 'ESTIMATED', methodology: { ...assessment.methodology, isMock: false, assessmentBasis: 'POTENTIAL', providerCode: 'EPA_WARM_ELECTRONICS', providerVersion: '1', baselineScenario: 'Landfilling', treatmentScenario: 'Recycling', geography: 'US reference' }, inputs: { weightKg: 2, weightMinKg: 1, weightMaxKg: 3, weightSource: 'ESTIMATED_RANGE_MIDPOINT' }, indicators: [{ ...assessment.indicators[0], value: '2.380992', status: 'ESTIMATED' }, { ...assessment.indicators[0], key: 'carbonEquivalent', label: 'Carbon equivalent', value: '0.002381', unitOfMeasure: 'T_CO2E', status: 'ESTIMATED' }] }}/>);
+  expect(screen.getByText('Potential CO₂e savings')).toBeInTheDocument();
+  expect(screen.getByText('0.002381 tCO₂e')).toBeInTheDocument();
+  expect(screen.getByText(/estimated range midpoint/)).toBeInTheDocument();
+  expect(screen.getByText(/Estimated total weight range: 1–3 kg/)).toBeInTheDocument();
+  expect(screen.queryByText(/Illustrative|demo/i)).not.toBeInTheDocument();
+  expect(screen.queryByText('Carbon credits')).not.toBeInTheDocument();
 });

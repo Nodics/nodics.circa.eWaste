@@ -57,17 +57,17 @@ it('uses native Back to retrace saved progress and exit without a discard prompt
 
 it('closes an unchanged editor without prompting or enabling native close confirmation', () => {
   showJourney(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit name and description' }));
   expect(host.setClosingConfirmation).toHaveBeenLastCalledWith(false);
   fireEvent.click(screen.getByRole('button', { name: 'Cancel editing' }));
-  expect(screen.getByText('Ready for a second life.')).toBeInTheDocument();
+  expect(screen.getByText('A better next step.')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(onExit).not.toHaveBeenCalled();
 });
 
 it('protects actual edits and discards only local changes after confirmation', () => {
   showJourney(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit name and description' }));
   fireEvent.change(screen.getByLabelText('Item name'), { target: { value: 'Changed phone' } });
   expect(host.setClosingConfirmation).toHaveBeenLastCalledWith(true);
   act(() => nativeBack());
@@ -84,12 +84,12 @@ it('protects actual edits and discards only local changes after confirmation', (
 
 it('removes the prompt when edits are reverted to the displayed original values', () => {
   showJourney(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit name and description' }));
   fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Changed' } });
   expect(host.setClosingConfirmation).toHaveBeenLastCalledWith(true);
   fireEvent.change(screen.getByLabelText('Description'), { target: { value: '' } });
   expect(host.setClosingConfirmation).toHaveBeenLastCalledWith(false);
   fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
-  expect(screen.getByText('Ready for a second life.')).toBeInTheDocument();
+  expect(screen.getByText('A better next step.')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

@@ -1,4 +1,4 @@
-import { EnvironmentalImpactCard } from "./features/submission/EnvironmentalImpactCard";
+import { ItemDetailsCard } from "./features/submission/ItemDetailsCard";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowUp,
@@ -281,11 +281,11 @@ export function SubmissionAssistant({
                     {!ready && (
                       <h3>
                         {preview
-                          ? "Your photo is saved"
+                          ? "Let’s check your photo"
                           : "Take a photo. We’ll identify your item."}
                       </h3>
                     )}
-                    {!ready && draft?.evidenceRefs?.length && !busy ? (
+                    {!ready && preview && !busy ? (
                       <div>
                         <button
                           className="secondary full"
@@ -293,9 +293,9 @@ export function SubmissionAssistant({
                         >
                           Retry image analysis
                         </button>
-                        <button className="text-button" onClick={showEditor}>
+                        {draft?.metadata.suggestion && <button className="text-button" onClick={showEditor}>
                           Enter essential details
-                        </button>
+                        </button>}
                       </div>
                     ) : null}
                     {preview && (
@@ -341,50 +341,7 @@ export function SubmissionAssistant({
                     )}
                     {ready && !editing && (
                       <div className="conversation-card review-card">
-                        <h3>{draft?.submittedFacts.name}</h3>
-                        {draft?.metadata.suggestion?.recognition?.taxonomyMatch?.kind === "GENERIC_FALLBACK" && <p>We identified the item and used a general item type. Review the details before submitting.</p>}
-                        <p>
-                          {nameOf(category?.name)} · {nameOf(type?.name)}
-                          {draft?.submittedFacts.sizeClass &&
-                          draft.submittedFacts.sizeClass !== "UNKNOWN"
-                            ? ` · ${draft.submittedFacts.sizeClass.toLowerCase()}`
-                            : ""}
-                        </p>
-                        <p>{draft?.submittedFacts.description}</p>
-                        <p>{draft?.submittedFacts.quantity} item(s)</p>
-                        <EnvironmentalImpactCard assessment={estimate?.metadata?.environmentalAssessment}/>
-                        <small>Rewards are confirmed after approval.</small>
-                        <details>
-                          <summary>More details</summary>
-                          <p>
-                            Handling class:{" "}
-                            {draft?.submittedFacts.sizeClass?.toLowerCase() ||
-                              "unknown"}
-                          </p>
-                          <p>
-                            Weight:{" "}
-                            {draft?.submittedFacts.weight
-                              ? `${draft.submittedFacts.weight} kg (customer declared)`
-                              : "Unknown; a photo cannot establish weight"}
-                          </p>
-                          {draft?.metadata.suggestion?.recognition?.materials.map(
-                            (material) => (
-                              <p key={material.ref.code}>
-                                {material.ref.code.replaceAll("_", " ")}:{" "}
-                                {material.basis.toLowerCase()} suggestion,
-                                subject to review
-                              </p>
-                            ),
-                          )}
-                          <p>
-                            {draft?.submittedFacts.brand}{" "}
-                            {draft?.submittedFacts.model}
-                          </p>
-                          <p>
-                            Condition:{" "}
-                            {draft?.submittedFacts.conditionGrade || "Unknown"}
-                          </p>
-                        </details>
+                        {draft && <ItemDetailsCard record={draft} onEdit={!busy ? showEditor : undefined}/>}
                         <button
                           className="text-button"
                           disabled={!!busy}
@@ -418,46 +375,6 @@ export function SubmissionAssistant({
                             value={facts.name || ""}
                             onChange={(e) =>
                               setFacts({ ...facts, name: e.target.value })
-                            }
-                          />
-                        </label>
-                        <label>
-                          Item type
-                          <select
-                            aria-label="Item type"
-                            required
-                            value={facts.itemTypeCode || ""}
-                            onChange={(e) => {
-                              const item = experience?.itemTypes.find(
-                                (i) => i.code === e.target.value,
-                              );
-                              setFacts({
-                                ...facts,
-                                itemTypeCode: item?.code,
-                                categoryCode: item?.categoryCode,
-                              });
-                            }}
-                          >
-                            <option value="">Choose item type</option>
-                            {experience?.itemTypes.map((i) => (
-                              <option key={i.code} value={i.code}>
-                                {nameOf(i.name)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label>
-                          Quantity
-                          <input
-                            type="number"
-                            min={1}
-                            max={100}
-                            value={facts.quantity || 1}
-                            onChange={(e) =>
-                              setFacts({
-                                ...facts,
-                                quantity: Number(e.target.value),
-                              })
                             }
                           />
                         </label>
@@ -502,7 +419,7 @@ export function SubmissionAssistant({
                       {["APPROVED", "REJECTED"].includes(
                         draft!.submissionStatus,
                       )
-                        ? draft?.metadata.publicReason
+                        ? "Your complete item details and the reviewer’s feedback are below."
                         : draft?.metadata.reviewAssignment?.status ===
                             "ASSIGNED"
                           ? draft.metadata.origin?.channel === "TELEGRAM" &&
@@ -515,8 +432,9 @@ export function SubmissionAssistant({
                       draft.metadata.depositInstruction && (
                         <p>{draft.metadata.depositInstruction}</p>
                       )}
+                    {draft && <ItemDetailsCard record={draft} image={preview}/>}
                     <small>{draft?.code}</small>
-                    <a className="secondary full" href="/account">
+                    <a className="secondary full" href="/account" onClick={() => setOpen(false)}>
                       View My Account
                     </a>
                     <button className="text-button" onClick={journey.startNew}>

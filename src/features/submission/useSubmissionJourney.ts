@@ -4,7 +4,6 @@ import {
   ApiError,
   commandKey,
   request,
-  unwrap,
   type Centre,
   type Facts,
   type Session,
@@ -19,7 +18,7 @@ import {
 
 export type Arrival = {
   contractVersion: number;
-  draft: Submission;
+  draft: Submission | null;
   selectedCentre: Centre | null;
   nearbyCentres: Centre[];
   centres: Centre[];
@@ -70,6 +69,8 @@ export function useSubmissionJourney({
     generation = useRef(0),
     lock = useRef(false),
     capture = useRef<AbortController | null>(null),
+    preparation = useRef<AbortController | null>(null),
+    pendingPhoto = useRef<File | null>(null),
     position = useRef<Position | null>(null),
     createKey = useRef(commandKey());
   const storage = session ? `circa.draft.${session.loginId}` : "";
@@ -109,7 +110,7 @@ export function useSubmissionJourney({
           ERR_CIRCA_ARRIVAL_REQUIRED: "Check your location at the collection centre before continuing. Your progress is saved.",
         };
         const locationMessage = e instanceof ApiError ? locationMessages[e.code || ""] : undefined;
-        setError(locationMessage || (e instanceof Error ? e.message : "Please retry."));
+        setError(locationMessage ? current.current ? locationMessage : locationMessage.replace("Your progress is saved.", "Nothing has been submitted.") : (e instanceof Error ? e.message : "Please retry."));
         if (
           locationMessage
         ) {
@@ -138,18 +139,8 @@ export function useSubmissionJourney({
       }
     }
   }
-  async function ensureDraft(active: () => boolean): Promise<Submission> {
-    if (current.current) return current.current;
-    const d = await request<Submission>(`${API}/submissions`, session, {
-      quantity: 1,
-      conditionGrade: "UNKNOWN",
-      idempotencyKey: createKey.current,
-    });
-    if (active()) apply(d);
-    return d;
-  }
   async function locate(
-    d: Submission,
+    d: Submission | null,
     active: () => boolean,
     choice?: string,
     reuse = false,
@@ -166,17 +157,17 @@ export function useSubmissionJourney({
     if (!active()) return d;
     position.current = p;
     const result = await request<Arrival>(
-      `${API}/submissions/${encodeURIComponent(d.code)}/arrival`,
+      d ? `${API}/submissions/${encodeURIComponent(d.code)}/arrival` : `${API}/journey/arrival`,
       session,
       {
         position: p,
         collectionPointCode: choice,
-        expectedRevision: d.revision,
+        expectedRevision: d?.revision,
       },
     );
     if (active()) {
       setArrival(result);
-      apply(result.draft);
+      if (result.draft) apply(result.draft);
       setPermission("granted");
     }
     if (requireArrival && result.nextAction !== "PHOTO") {
@@ -190,6 +181,8 @@ export function useSubmissionJourney({
   useEffect(() => {
     const epoch = ++generation.current;
     capture.current?.abort();
+    preparation.current?.abort();
+    pendingPhoto.current = null;
     lock.current = false;
     current.current = null;
     setDraft(null);
@@ -248,13 +241,12 @@ export function useSubmissionJourney({
       if (!active()) return;
       setPermission(result);
       if (result === "granted" || result === "unknown") {
-        d = d || (await ensureDraft(active));
         if (!active()) return;
         const located = await locate(d, active);
         if (active())
           setReady(
             Boolean(
-              located.evidenceRefs?.length &&
+              located?.evidenceRefs?.length &&
               located.submittedFacts.itemTypeCode &&
               located.submittedFacts.name,
             ),
@@ -264,6 +256,7 @@ export function useSubmissionJourney({
     return () => {
       if (generation.current === epoch) generation.current++;
       capture.current?.abort();
+      preparation.current?.abort();
       lock.current = false;
     };
   }, [
@@ -276,13 +269,13 @@ export function useSubmissionJourney({
   ]);
   function checkLocation(choice?: string) {
     return run("Finding collection centres near you…", async (active) => {
-      const d = await ensureDraft(active);
+      const d = current.current;
       if (!active()) return;
       const result = await locate(d, active, choice, Boolean(choice));
       if (active())
         setReady(
           Boolean(
-            result.evidenceRefs?.length &&
+            result?.evidenceRefs?.length &&
             result.submittedFacts.itemTypeCode &&
             result.submittedFacts.name,
           ),
@@ -322,7 +315,7 @@ export function useSubmissionJourney({
   }
   function upload(file: File) {
     return run("Uploading and identifying your item…", async (active) => {
-      let d = await ensureDraft(active);
+      let d = current.current;
       if (!active()) return;
       if (
         !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
@@ -332,36 +325,40 @@ export function useSubmissionJourney({
       d = await locate(
         d,
         active,
-        d.submittedFacts.preferredCollectionPointCode,
+        d?.submittedFacts.preferredCollectionPointCode || arrival?.selectedCentre?.code,
         false,
         true,
       );
       if (!active()) return;
-      const form = new FormData();
-      form.append("file", file);
-      const response = await fetch("/nodics/media/v0/customer/photos", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session?.token}` },
-        body: form,
+      if (pendingPhoto.current !== file && d) createKey.current = commandKey();
+      pendingPhoto.current = file;
+      setPreview(URL.createObjectURL(file));
+      setReady(false);
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(new Error("The photo could not be read. Choose it again."));
+        reader.readAsDataURL(file);
       });
-      const body = await response.json();
-      if (!response.ok)
-        throw Error(body.message || "Upload failed. Please retry.");
       if (!active()) return;
-      const media = unwrap<{ code: string }>(body);
+      preparation.current = new AbortController();
       d = await request<Submission>(
-        `${API}/submissions/${d.code}/photo`,
+        d ? `${API}/submissions/${d.code}/prepare` : `${API}/submissions/prepare`,
         session,
-        { mediaCode: media.code, expectedRevision: d.revision },
+        { photo: { mimeType: file.type, contentBase64, originalFileName: file.name }, position: position.current,
+          collectionPointCode: d?.submittedFacts.preferredCollectionPointCode || arrival?.selectedCentre?.code,
+          expectedRevision: d?.revision, idempotencyKey: createKey.current },
+        "POST", { timeoutMs: 150000, signal: preparation.current.signal },
       );
       if (!active()) return;
       apply(d);
-      setReady(false);
-      setPreview(URL.createObjectURL(file));
-      await analyze(d, active);
+      pendingPhoto.current = null;
+      setReady(Boolean(d.evidenceRefs?.length && d.submittedFacts.itemTypeCode && d.submittedFacts.name));
+      say("Your photo and details are saved. Check them before submitting for review.");
     });
   }
   function retryAnalysis() {
+    if (pendingPhoto.current) return upload(pendingPhoto.current);
     return run("Identifying your item…", async (active) => {
       if (!current.current) return;
       const d = await locate(
@@ -371,7 +368,7 @@ export function useSubmissionJourney({
         false,
         true,
       );
-      if (active()) await analyze(d, active);
+      if (active() && d) await analyze(d, active);
     });
   }
   function edit(facts: Facts) {
@@ -381,7 +378,7 @@ export function useSubmissionJourney({
       let d = await request<Submission>(
         `${API}/submissions/${current.current.code}`,
         session,
-        { ...facts, expectedRevision: current.current.revision },
+        { name: facts.name, description: facts.description, expectedRevision: current.current.revision },
         "PATCH",
       );
       if (!active()) return;
@@ -476,6 +473,7 @@ export function useSubmissionJourney({
         true,
       );
       if (!active()) return;
+      if (!d) return;
       d = await request<Submission>(
         `${API}/submissions/${d.code}/confirm`,
         session,
@@ -496,6 +494,8 @@ export function useSubmissionJourney({
   function startNew() {
     generation.current++;
     capture.current?.abort();
+    preparation.current?.abort();
+    pendingPhoto.current = null;
     current.current = null;
     setDraft(null);
     setReady(false);

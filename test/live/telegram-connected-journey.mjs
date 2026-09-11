@@ -82,6 +82,7 @@ try {
  pass('explicit customer correction revalidates the preview');
  const originalCode=submissionCode;assert.ok(originalCode);
  await context.close();await open();
+ await page.getByRole('button',{name:'Continue draft',exact:true}).click();
  await page.getByRole('button',{name:'Confirm and submit',exact:true}).waitFor();
  assert.equal(await page.getByRole('textbox',{name:'Email address'}).count(),0);
  assert.equal(await page.locator('.journey-photo').count(),1);
@@ -100,8 +101,10 @@ try {
   const verifier=await staff('verifier@circa.local'),approver=await staff('approver@circa.local');
   const denied=await domain('/review-workspace');assert.ok(denied.status>=400);
   const detail=await domain('/review-workspace/'+originalCode,verifier);assert.equal(detail.status,200);
-  const verification=await domain('/reviews/'+originalCode+'/verify',verifier,{verifiedFacts:{name:record.submittedFacts.name},expectedRevision:detail.data.revision,confirmed:true,idempotencyKey:originalCode+':tg-qa-verify'});assert.equal(verification.status,200);
-  const current=verification.data.submission;
+  const verificationClaim=await domain('/review-workspace/'+originalCode+'/assignment',verifier,{action:'CLAIM',expectedRevision:detail.data.revision,confirmed:true,idempotencyKey:originalCode+':tg-qa-verifier-claim'});assert.equal(verificationClaim.status,200);
+  const verification=await domain('/reviews/'+originalCode+'/verify',verifier,{verifiedFacts:{name:record.submittedFacts.name},expectedRevision:verificationClaim.data.revision,confirmed:true,idempotencyKey:originalCode+':tg-qa-verify'});assert.equal(verification.status,200);
+  const approvalClaim=await domain('/review-workspace/'+originalCode+'/assignment',approver,{action:'CLAIM',expectedRevision:verification.data.submission.revision,confirmed:true,idempotencyKey:originalCode+':tg-qa-approver-claim'});assert.equal(approvalClaim.status,200);
+  const current=approvalClaim.data;
   const blank=await domain('/reviews/'+originalCode,approver,{decision:'REJECTED',reason:' ',expectedRevision:current.revision,confirmed:true,idempotencyKey:originalCode+':blank'});assert.equal(blank.code,'ERR_WASTE_REVIEW_REASON_REQUIRED');
   const reason='LOCAL TEST COMPLETE — simulated-location submission; no physical item deposited.';
   const decision={decision:'REJECTED',reason,expectedRevision:current.revision,confirmed:true,idempotencyKey:originalCode+':tg-qa-reject'};
@@ -110,7 +113,7 @@ try {
   record=(await domain('/submissions/'+originalCode)).data;assert.equal(record.metadata.publicReason,reason);
   pass('independent review, customer queue denial, required rejection reason and idempotent decision');
   await context.close();await open();
-  await page.getByRole('heading',{name:'Not approved',exact:true}).waitFor();
+  await expect(page.locator('.waste-detail-summary .waste-status')).toHaveText('Rejected');
   await expect(page.getByText(reason,{exact:true})).toBeVisible();
   await page.screenshot({path:path.join(output,'05-reviewed-outcome.png')});
   pass('fresh linked return restores the exact reviewer outcome and comment');

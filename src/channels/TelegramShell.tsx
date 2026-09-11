@@ -1,3 +1,4 @@
+import { submissionLinkCode } from "./submissionLink";
 import { useEffect, useState } from "react";
 import { MobileLaunchScreen } from "../mobile/MobileLaunchScreen";
 import { MobileApp } from "../mobile/MobileApp";
@@ -102,6 +103,7 @@ export function TelegramShell() {
       session={session}
       experience={experience}
       host={host}
+      initialSubmissionCode={submissionLinkCode(new URLSearchParams(window.Telegram?.WebApp?.initData || "").get("start_param"))}
       onLogin={async (value) => {
         const proof = window.Telegram?.WebApp?.initData;
         if (!proof)
@@ -109,8 +111,11 @@ export function TelegramShell() {
             "Reopen Circa from Telegram before linking your account.",
           );
         await linkChannel("TELEGRAM", proof, value);
-        saveSession(value);
-        setSession(value);
+        const linkedSession = await enterChannel("TELEGRAM", proof);
+        if (!linkedSession || linkedSession.loginId !== value.loginId)
+          throw new Error("Your Telegram session could not be completed. Please reopen Circa.");
+        saveSession(linkedSession);
+        setSession(linkedSession);
       }}
       onLogout={() => setSession(null)}
     />

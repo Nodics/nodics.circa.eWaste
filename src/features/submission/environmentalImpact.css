@@ -23,3 +23,6 @@
 .environment-method h4 { margin:17px 0 8px; font-size:13px; }
 .environment-method p { margin:5px 0; font-size:11px; line-height:1.6; color:#617158; }
 @media (max-width:360px) { .environment-card { padding:15px; } .environment-heading h3 { font-size:14px; } }
+
+.environment-history-pages { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
+.environment-method, .environment-details { overflow-wrap: anywhere; }

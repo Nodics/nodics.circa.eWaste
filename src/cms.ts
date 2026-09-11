@@ -19,6 +19,7 @@ const renderers = new Set(
     "centres",
     "contact",
     "policy",
+    "wasteWorkspace",
   ].map((name) => `circa.${name}`),
 );
 export function contentText(content: Content | undefined, key: string): string {

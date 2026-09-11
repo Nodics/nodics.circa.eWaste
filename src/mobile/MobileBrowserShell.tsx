@@ -1,3 +1,4 @@
+import { submissionLinkCode } from "../channels/submissionLink";
 import { useEffect, useState } from "react";
 import { APP_API, request, restoreSession, saveSession, type Experience, type Session } from "../api";
 import { webJourneyHost } from "../channels/journeyHost";
@@ -17,5 +18,5 @@ export function MobileBrowserShell() {
   }, [attempt]);
   if (error) return <main className="mobile-boot"><h1>Let’s reconnect.</h1><MobileNotice retry={() => setAttempt(value => value + 1)}>{error}</MobileNotice></main>;
   if (!experience) return <MobileLaunchScreen/>;
-  return <MobileApp session={session} experience={experience} host={webJourneyHost} onLogin={value => { saveSession(value); setSession(value); }} onLogout={() => setSession(null)}/>;
+  return <MobileApp initialSubmissionCode={submissionLinkCode(new URLSearchParams(window.location.search).get("submission"))} session={session} experience={experience} host={webJourneyHost} onLogin={value => { saveSession(value); setSession(value); }} onLogout={() => setSession(null)}/>;
 }

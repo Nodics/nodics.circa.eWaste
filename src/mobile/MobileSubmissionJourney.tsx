@@ -1,4 +1,4 @@
-import { EnvironmentalImpactCard } from "../features/submission/EnvironmentalImpactCard";
+import { ItemDetailsCard } from "../features/submission/ItemDetailsCard";
 import type { Content } from "../cms";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ImagePlus, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
@@ -7,7 +7,7 @@ import type { JourneyHost } from "../channels/journeyHost";
 import { useSubmissionJourney } from "../features/submission/useSubmissionJourney";
 import { CentreCard, LeaveDialog, MobileHeader, MobileNotice } from "./MobilePrimitives";
 
-const editableValues = (facts: Facts) => [facts.name || "", facts.itemTypeCode || "", facts.categoryCode || "", facts.quantity ?? 1, facts.description || ""];
+const editableValues = (facts: Facts) => [facts.name || "", facts.description || ""];
 
 /** Mobile presentation over the same owner-governed controller used by the website. */
 export function MobileSubmissionJourney({ session, experience, host, code, onExit, onSubmitted, branding }: {
@@ -25,8 +25,6 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
   const atCentre = arrival?.nextAction === "PHOTO";
   const step = submitted ? "receipt" : editing ? "edit" : !atCentre ? "centre" : previousStep || (ready ? "review" : "photo");
   const centre = arrival?.selectedCentre || experience.centres.find(item => item.code === draft?.submittedFacts.preferredCollectionPointCode);
-  const itemType = experience.itemTypes.find(item => item.code === draft?.submittedFacts.itemTypeCode);
-  const estimate = draft?.metadata.estimate;
   const goBack = useCallback(() => {
     if (busy) return;
     if (help) { setHelp(false); return; }
@@ -63,36 +61,32 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
         {step === "photo" && <>
           <span className="mobile-eyebrow">Step 02 · A clear picture</span><h1>Let’s meet your item.</h1><p>Photograph one type of item at a time. Keep it fully in view, with enough light to see the details.</p>
           {centre && <div className="mobile-location-strip"><MapPin size={16}/><span>{nameOf(centre.name)}</span><CheckCircle2 size={16}/></div>}
-          {!!draft?.evidenceRefs?.length && !ready && !busy && <div className="mobile-card mobile-recognition-recovery"><h2>Your photo is saved</h2><p>Enter the item details below, or try identifying this photo again.</p><button className="mobile-secondary" onClick={() => void journey.retryAnalysis()}>Retry image analysis</button></div>}
+          {!!preview && !ready && !busy && <div className="mobile-card mobile-recognition-recovery"><h2>Let’s check your photo</h2><p>Try identifying this photo again, or replace it with a clearer image. A new item is saved only after analysis succeeds.</p><button className="mobile-secondary" onClick={() => void journey.retryAnalysis()}>Retry image analysis</button></div>}
           <div className={`mobile-photo-well ${preview ? "has-photo" : ""}`}>{preview ? <img className="journey-photo" src={preview} alt="Your submitted item"/> : <><Camera size={46} strokeWidth={1.2}/><span>Your item goes here</span><small>A clear photo makes the next step easier.</small></>}</div>
           <div className="mobile-upload-actions"><label className="mobile-primary"><Camera size={19}/> {preview ? "Retake photo" : "Take photo"}<input aria-label="Take item photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label><label className="mobile-secondary"><ImagePlus size={19}/> {preview ? "Replace image" : "Choose from photos"}<input aria-label="Item photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label></div>
           <p className="mobile-caption">JPEG, PNG or WebP · Up to 5 MB<br/>Your photo is kept private with your submission.</p>
         </>}
         {step === "review" && draft && <>
-          <span className="mobile-eyebrow">Step 03 · One final look</span><h1>Ready for a second life.</h1><p>Check the suggested details. You’re in control of what gets submitted.</p>
-          <div className="mobile-review-item">{preview && <img className="journey-photo" src={preview} alt="Your submitted item"/>}<div><span className="mobile-eyebrow">Your item</span><h2>{draft.submittedFacts.name}</h2><p>{nameOf(itemType?.name)} · {draft.submittedFacts.quantity || 1} item(s)</p></div></div>
-          {draft.metadata.suggestion?.recognition?.taxonomyMatch?.kind === "GENERIC_FALLBACK" && <p className="mobile-caption">We identified the item and used a general item type. Review the details before submitting.</p>}
-          <div className="mobile-card"><div className="mobile-row mobile-between"><h2>Item details</h2><button className="mobile-text" disabled={!!busy} onClick={beginEdit}>Edit details</button></div><p>{draft.submittedFacts.description || "No description added."}</p><dl className="mobile-details"><div><dt>Collection centre</dt><dd>{nameOf(centre?.name) || "Confirmed on arrival"}</dd></div><div><dt>Condition</dt><dd>{draft.submittedFacts.conditionGrade?.replaceAll("_", " ").toLowerCase() || "Not specified"}</dd></div>{draft.submittedFacts.brand && <div><dt>Brand</dt><dd>{draft.submittedFacts.brand} {draft.submittedFacts.model}</dd></div>}</dl><button className="mobile-text" disabled={!!busy} onClick={() => setPreviousStep("photo")}>Replace photo <ChevronRight size={16}/></button></div>
-          <EnvironmentalImpactCard assessment={estimate?.metadata?.environmentalAssessment}/>
+          <span className="mobile-eyebrow">Step 03 · One final look</span><h1>A better next step.</h1><p>Check the suggested details. You’re in control of what gets submitted.</p>
+          <ItemDetailsCard record={draft} image={preview} onEdit={!busy ? beginEdit : undefined}/>
+          <button className="mobile-text" disabled={!!busy} onClick={() => setPreviousStep("photo")}>Replace photo <ChevronRight size={16}/></button>
           <div className="mobile-trust"><ShieldCheck size={18}/><p>Submitting sends this item for review. We’ll check your location once more to confirm arrival.</p></div>
         </>}
         {step === "edit" && <form id="mobile-item-editor" className="mobile-editor" onSubmit={async event => { event.preventDefault(); if (await journey.edit(facts)) { setEditing(false); setPreviousStep(null); } }}>
-          <span className="mobile-eyebrow">Make it yours</span><h1>Check the details.</h1><p>Correct anything that doesn’t look right.</p>
+          <span className="mobile-eyebrow">Make it yours</span><h1>Check the details.</h1><p>Edit the name and description. The collection team reviews all other properties.</p>
           <label>Item name<input required maxLength={180} value={facts.name || ""} onChange={event => setFacts({ ...facts, name: event.target.value })} disabled={!!busy}/></label>
-          <label>Item type<select required value={facts.itemTypeCode || ""} onChange={event => { const type = experience.itemTypes.find(item => item.code === event.target.value); setFacts({ ...facts, itemTypeCode: type?.code, categoryCode: type?.categoryCode }); }} disabled={!!busy}><option value="">Choose item type</option>{experience.itemTypes.map(item => <option key={item.code} value={item.code}>{nameOf(item.name)}</option>)}</select></label>
-          <label>Quantity<input required type="number" min={1} max={100} step={1} inputMode="numeric" value={facts.quantity ?? 1} onChange={event => setFacts({ ...facts, quantity: Number(event.target.value) })} disabled={!!busy}/></label>
           <label>Description<textarea maxLength={2000} rows={4} value={facts.description || ""} onChange={event => setFacts({ ...facts, description: event.target.value })} disabled={!!busy}/></label>
         </form>}
         {step === "receipt" && draft && <>
-          <div className={`mobile-receipt ${draft.submissionStatus === "REJECTED" ? "needs-attention" : ""}`}><span className="mobile-large-icon">{draft.submissionStatus === "REJECTED" ? <MessageCircle size={32}/> : <Check size={36}/>}</span><span className="mobile-eyebrow">{draft.submissionStatus === "SUBMITTED" ? "Safely received" : "Review outcome"}</span><h1>{draft.submissionStatus === "APPROVED" ? "Approved." : draft.submissionStatus === "REJECTED" ? "Not approved." : "You’ve done your part."}</h1><p>{draft.submittedFacts.name || "Your item"}</p></div>
-          <div className="mobile-card"><h2>{["APPROVED", "REJECTED"].includes(draft.submissionStatus) ? "Reviewer’s comment" : "What happens next"}</h2><p>{["APPROVED", "REJECTED"].includes(draft.submissionStatus) ? draft.metadata.publicReason || "No reviewer comment is available." : draft.metadata.reviewAssignment?.status === "ASSIGNED" ? "The review team will check your item. You can follow the decision and reviewer’s comments in Submissions." : "Your submission is saved. We’re waiting for a reviewer to be assigned."}</p>{draft.submissionStatus === "SUBMITTED" && draft.metadata.depositInstruction && <div className="mobile-deposit"><strong>At the centre</strong><p>{draft.metadata.depositInstruction}</p></div>}{draft.metadata.origin?.channel === "TELEGRAM" && draft.metadata.origin.allowsWrite && draft.submissionStatus === "SUBMITTED" && <p>We’ll also send the outcome and reviewer’s comment to Telegram.</p>}</div>
+          <div className={`mobile-receipt ${draft.submissionStatus === "REJECTED" ? "needs-attention" : ""}`}><span className="mobile-large-icon">{draft.submissionStatus === "REJECTED" ? <MessageCircle size={32}/> : <Check size={36}/>}</span><span className="mobile-eyebrow">{draft.submissionStatus === "SUBMITTED" ? "Safely received" : "Review outcome"}</span><h1>{draft.submissionStatus === "APPROVED" ? "Approved." : draft.submissionStatus === "REJECTED" ? "Not approved." : "You’ve done your part."}</h1><p>{draft.descriptor?.identity.name || draft.submittedFacts.name || "Your item"}</p></div>
+          {!["APPROVED", "REJECTED"].includes(draft.submissionStatus) && <div className="mobile-card"><h2>What happens next</h2><p>{draft.metadata.reviewAssignment?.status === "ASSIGNED" ? "The review team will check your item. You can follow the decision and reviewer’s comments in Submissions." : "Your submission is saved. We’re waiting for a reviewer to be assigned."}</p>{draft.submissionStatus === "SUBMITTED" && draft.metadata.depositInstruction && <div className="mobile-deposit"><strong>At the centre</strong><p>{draft.metadata.depositInstruction}</p></div>}{draft.metadata.origin?.channel === "TELEGRAM" && draft.metadata.origin.allowsWrite && draft.submissionStatus === "SUBMITTED" && <p>We’ll also send the outcome and reviewer’s comment to Telegram.</p>}</div>}
+          <ItemDetailsCard record={draft} image={preview}/>
           <div className="mobile-reference"><span>Submission reference</span><code>{draft.code}</code></div>
         </>}
       </>}
     </div>
     {!help && <footer className="mobile-action-bar">
       {step === "centre" && <button className="mobile-primary" disabled={!!busy || permission === "checking"} onClick={async () => { if (await journey.checkLocation(centre?.code)) setPreviousStep(null); }}>{busy || permission === "checking" ? "Checking location…" : !arrival ? permission === "prompt" ? "Share location" : "Check location again" : atCentre ? "Continue to photo" : "I’ve arrived — check location"}<ArrowRight size={18}/></button>}
-      {step === "photo" && !ready && !!draft?.evidenceRefs?.length && !busy && <button className="mobile-primary" onClick={beginEdit}>Enter item details <ArrowRight size={18}/></button>}
       {step === "photo" && ready && <button className="mobile-primary" disabled={!!busy} onClick={() => setPreviousStep(null)}>Continue to review <ArrowRight size={18}/></button>}
       {step === "review" && <><button className="mobile-primary" disabled={!!busy} onClick={() => void journey.confirm()}>{busy ? "Please wait…" : "Confirm and submit"}<ArrowRight size={18}/></button><small>Nothing is submitted until you confirm.</small></>}
       {step === "edit" && <><button className="mobile-primary" form="mobile-item-editor" disabled={!!busy}>Save correction <Check size={18}/></button><button className="mobile-text" disabled={!!busy} onClick={goBack}>Cancel editing</button></>}

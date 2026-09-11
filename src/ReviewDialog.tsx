@@ -5,10 +5,12 @@ export function ReviewDialog({
   title,
   onClose,
   children,
+  className,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }) {
   const host = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -21,7 +23,7 @@ export function ReviewDialog({
   return (
     <dialog
       ref={host}
-      className="modal"
+      className={`modal ${className || ""}`}
       onCancel={(e) => {
         e.preventDefault();
         onClose();

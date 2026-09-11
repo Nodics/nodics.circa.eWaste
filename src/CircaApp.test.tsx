@@ -80,6 +80,7 @@ beforeEach(() => {
   };
   vi.stubGlobal("scrollTo", vi.fn());
   HTMLElement.prototype.scrollTo = vi.fn();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, options?: RequestInit) => {
@@ -94,30 +95,104 @@ beforeEach(() => {
             result: {
               contractVersion: 0,
               site: "circaSite",
-              path: "/",
+              path: new URL(url, "http://localhost").searchParams.get("path"),
               page: {
                 code: "test-home",
                 renderer: "circa.page",
-                components: ["shell", "wallet", "centres"].map(
-                  (kind, index) => ({
-                    code: kind,
-                    renderer: "circa." + kind,
-                    rendererContractVersion: 1,
-                    properties: {},
-                    index,
-                  }),
-                ),
+                components: (url.includes("%2Faccount%2Fwaste")
+                  ? ["wasteWorkspace"]
+                  : ["shell", "wallet", "centres"]
+                ).map((kind, index) => ({
+                  code: kind,
+                  renderer: "circa." + kind,
+                  rendererContractVersion: 1,
+                  properties:
+                    kind === "wasteWorkspace"
+                      ? {
+                          title: "Your items",
+                          sections: [
+                            { code: "overview", label: "Overview" },
+                            { code: "history", label: "Review & history" },
+                          ],
+                        }
+                      : {},
+                  index,
+                })),
               },
             },
           }),
         };
       let data: unknown;
       if (url.endsWith("/purchases")) data = { orders: [], entitlements: [] };
+      else if (url.endsWith("/bids")) data = { bids: [] };
       else if (url.endsWith("/experience")) data = experience;
       else if (url.endsWith("/marketplace")) data = { assets: [], coupons: [] };
       else if (url.endsWith("/customer/browser/authenticate"))
         data = { authToken: "test-customer-token" };
-      else if (url.endsWith("/account")) data = account;
+      else if (url.includes("/account/items")) {
+        const parsed = new URL(url, "http://localhost");
+        const selected = submissions.filter(
+          (value) =>
+            parsed.searchParams.get("status") !== "REJECTED" ||
+            value.submissionStatus === "REJECTED",
+        );
+        const projection = (value: Submission) => ({
+          code: value.code,
+          resource: "submissions",
+          revision: value.revision,
+          photo: null,
+          submittedAt: value.metadata?.submittedAt,
+          actions: [],
+          status: {
+            code: value.submissionStatus,
+            label: value.submissionStatus,
+            tone: "neutral",
+            group: value.submissionStatus,
+          },
+          nextStep: {
+            title: "Review recorded",
+            description: "Follow the recorded outcome.",
+          },
+          descriptor: {
+            identity: {
+              name: value.submittedFacts.name,
+              description: "Item description",
+            },
+            classification: { family: {}, category: {}, itemType: {} },
+            condition: { value: "UNKNOWN" },
+            physical: { quantity: 1 },
+            environment: { assessment: null },
+            review: { comment: value.metadata?.publicReason },
+          },
+        });
+        if (parsed.pathname.endsWith("/items"))
+          data = {
+            contractVersion: 1,
+            view: "submissions",
+            items: selected.map(projection),
+            total: selected.length,
+            page: 1,
+            pageSize: 12,
+            statuses: [
+              { code: "ALL", label: "All", count: 3 },
+              { code: "REJECTED", label: "Rejected", count: 1 },
+            ],
+            sorts: [{ code: "RECENT", label: "Recent" }],
+            filters: { categories: [], itemTypes: [] },
+          };
+        else
+          data = {
+            contractVersion: 1,
+            item: projection(
+              submissions.find((value) =>
+                parsed.pathname.endsWith("/" + value.code),
+              )!,
+            ),
+            relatedAsset: null,
+            sourceSubmission: null,
+            history: [],
+          };
+      } else if (url.endsWith("/account")) data = account;
       else if (url.endsWith("/wallet")) data = wallet;
       else if (url === API + "/submissions") {
         draft = { ...draft, submittedFacts: body };
@@ -171,6 +246,34 @@ async function signIn() {
   return user;
 }
 describe("connected Circa journeys", () => {
+  it("keeps account sections off the item listing and opens each from account navigation", async () => {
+    saveSession({ token: "test", loginId: "customer@example.test" });
+    history.replaceState({}, "", "/account/items");
+    render(<CircaApp />);
+    await screen.findByRole("heading", { name: "Device 0" });
+    expect(screen.queryByRole("heading", { name: "Your bids" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Ownership activity")).not.toBeInTheDocument();
+    expect(calls.some(call => /\/(bids|purchases)$/.test(call.url))).toBe(false);
+    const user = userEvent.setup();
+    for (const [name, path, heading] of [
+      ["Bids", "/account/bids", "Your bids"],
+      ["Purchases & coupons", "/account/purchases", "Your purchases & coupons"],
+      ["Ownership activity", "/account/activity", "Ownership activity"],
+    ]) {
+      await user.hover(within(screen.getByRole("banner")).getByRole("link", { name: "My Account" }));
+      const navigation = screen.getByRole("navigation", { name: "Account navigation" });
+      await user.click(within(navigation).getByRole("link", { name: new RegExp("^" + name) }));
+      await screen.findByRole("heading", { name: heading, level: 1 });
+      expect(location.pathname).toBe(path);
+      expect(screen.queryByRole("heading", { name: "Device 0" })).not.toBeInTheDocument();
+    }
+    await user.click(screen.getByRole("link", { name: "Back to dashboard" }));
+    await screen.findByRole("heading", { name: "Your account, at a glance." });
+    await user.hover(within(screen.getByRole("banner")).getByRole("link", { name: "My Account" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("navigation", { name: "Account navigation" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "My Account" })).toHaveFocus();
+  });
   it("keeps personal values private until login and clears them immediately at logout", async () => {
     render(<CircaApp />);
     await screen.findByLabelText("Collection centre map");
@@ -184,24 +287,34 @@ describe("connected Circa journeys", () => {
   });
   it("loads account statuses from the API and shows the recorded rejection reason", async () => {
     saveSession({ token: "test", loginId: "customer@example.test" });
-    history.replaceState({}, "", "/account");
+    history.replaceState({}, "", "/account/items");
     render(<CircaApp />);
     await screen.findByRole("heading", { name: "Device 0" });
     const user = userEvent.setup();
-    await user.selectOptions(
-      screen.getByLabelText("Submission status filter"),
-      "REJECTED",
+    await user.click(screen.getByRole("button", { name: "Rejected 1" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Device 0" }),
+      ).not.toBeInTheDocument(),
     );
+    await user.click(
+      screen.getByRole("button", { name: "Quick view: Device 2" }),
+    );
+    const popup = await screen.findByRole("dialog", { name: "Quick view" });
+    await within(popup).findByText("Please provide a clearer photo.");
+    expect(location.pathname).toBe("/account/items");
+    await user.click(
+      within(popup).getByRole("button", { name: "Open full details" }),
+    );
+    await screen.findByRole("heading", { name: "Device 2" });
+    expect(location.pathname).toBe("/account/submissions/submission-2");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(location.search).toContain("status=REJECTED");
+    await user.click(screen.getByRole("link", { name: "Your items" }));
+    await screen.findByRole("button", { name: "Quick view: Device 2" });
     expect(
       screen.queryByRole("heading", { name: "Device 0" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Please provide a clearer photo."),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /View details/ }));
-    expect(
-      screen.getByRole("dialog", { name: "Device 2" }),
-    ).toBeInTheDocument();
   });
   it("captures granted location automatically and preserves the journey across help and resume", async () => {
     saveSession({ token: "test", loginId: "customer@example.test" });

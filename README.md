@@ -24,6 +24,8 @@ change. Reloading the website retains those changes.
 
 ## Connected journeys
 
+- Shop and Coupons share search, filters, sorting, grid/list controls, exact counts and server pagination with the My Account listing controls. Quick view and direct product detail pages preserve the listing URL state; purchasing still requires explicit review and confirmation. See the [catalogue guide](../../nodics.kickoff/modules/circa.ewaste/docs/pages/catalogue.md). Run `node test/live/catalogue-browsing.mjs` for read-only desktop/mobile acceptance.
+
 - Public homepage, three original banner images, asset/coupon previews and a
   Location-backed collection-centre map with an accessible centre list.
 - Shared Web/Telegram submission controls: permission-aware fresh location,
@@ -34,6 +36,22 @@ change. Reloading the website retains those changes.
   delivery and actual-client acceptance remain pending.
 - My Account, submission status/reasons, owned assets, purchase history and
   customer-authorized coupon reveal; separate wallet balance and ledger page.
+- `/account` is the customer dashboard: wallet cards, submission status and asset
+  charts, recent items, saved drafts and account shortcuts. Figures use
+  authenticated wallet balances and backend listing totals, including records
+  beyond the current page. Chart labels link to the matching item filters.
+- Account navigation separates My items (`/account/items`) and Wallet
+  (`/account/wallet`, with `/wallet` retained) from Bids (`/account/bids`), Purchases
+  & coupons (`/account/purchases`), and Ownership activity (`/account/activity`).
+  The web header menu and mobile Account screen open these views independently;
+  mobile deep links retain the host launch context and requested section through
+  sign-in. Item listings no longer append transaction or ownership histories.
+- Unfinished submissions live in the separate Drafts collection with saved-photo
+  previews and Continue draft actions. Main Submissions excludes every unfinished
+  state through the backend query, so search, counts and pages remain consistent.
+- Location and photo preparation are temporary until image analysis succeeds.
+  Leaving early or failing analysis creates no new submission or uploaded Media.
+  A successful preparation saves an analyzed draft; final submission remains explicit.
 - Fixed-price asset purchase, confirmed listing and gifting. Attached
   illustrative carbon moves with the asset; historical approval rewards stay
   with the contributor. Commerce places orders; Loyalty owns value movement.
@@ -167,3 +185,70 @@ the arrival authority. Specific location errors preserve the draft/photo, discar
 the rejected cached observation and offer fresh capture. The mobile location
 action stays visible in its fixed bottom bar. Devices without precise location
 can resume the saved submission in Telegram on a phone.
+
+Customer confirmation, submitted/reviewed outcomes, account detail and marketplace
+asset detail now share `ItemDetailsCard`, driven by the backend's authorized item
+descriptor. The primary view emphasizes the photo, name, description and available
+environmental assessment; full classification, materials/components, approximate
+ranges, condition and environmental observations expand on demand. Customers edit
+only name and description. Inconclusive analysis can use the configured manual
+review path without asking the customer for technical classifications.
+
+Axis reviewers own classification and physical/environmental corrections. Final
+customer views use the reviewed facts and exact public feedback while original
+submitted facts remain in the backend audit trail. Channel hosts share this
+presentation and API contract. This does not activate an unimplemented channel
+adapter or the separate repair/reuse lifecycle.
+
+`test/live/customer-journey.mjs` supports independent verifier/approver sessions;
+optional marketplace listing requires `CIRCA_LISTING_TEST=true`.
+`test/live/reviewed-descriptor.mjs` checks a supplied local journey fixture and
+its reviewed desktop/mobile detail. These are connected automated browser checks,
+not physical-device or native messaging-client acceptance evidence.
+
+Review links select the exact item through `/mobile?submission=<code>` or the
+Telegram launch `start_param`. The mobile shell keeps the target through shared
+sign-in and opens the authorized full item page. It does not substitute another
+saved draft. Record codes are bounded selectors, never credentials; the backend
+still enforces ownership. Reviewed list titles use the owner-projected identity.
+
+
+## Customer item workspace
+
+My Account and mobile/Telegram Items share `CustomerWasteWorkspace`: owner-scoped
+submission and asset collections, server-side search/status/category/type/date
+filters, exact counts, stable pagination, and grid/list layouts. Cards expose a
+separate Quick view; image/title/detail links open an independently fetched full
+page. Web routes are `/account/submissions/:code` and `/account/assets/:code`;
+mobile links use `?submission=:code` or `?asset=:code`. Return navigation retains
+filters. Draft continuation is an explicit backend-available action.
+
+The `/account/waste` WCMS Online page supplies banner, copy and detail section
+order through `circa.wasteWorkspace`. Install the customer project's
+`circa.ewaste:customer-workspace` core release into WCMS Staged and publish its
+route through nPublish and Process before serving this frontend. An unavailable
+published page shows a recoverable error. Domain data and permitted actions come
+from `/nodics/eWaste/v0/account/items` and `/account/items/:code`; WCMS contains no
+customer records. The canonical Waste descriptor supplies reviewed identity,
+physical/material details, environmental assessment and public review feedback.
+
+Trade/gift dialogs retain explicit confirmation, displayed revision and command
+idempotency. Their availability is supplied by the backend and revalidated by the
+owning command. Quick view is read-only. Missing evidence stays visibly missing;
+private photos show a loading state until the authorized media read completes.
+
+Run `npm run verify` and `node test/live/customer-workspace.mjs`. The latter uses
+the documented local sample customer, exercises listing/detail/reload/filter and
+mobile navigation, and cancels command previews. It does not submit trades or
+prove native Telegram WebView acceptance.
+
+
+The customer listing starts with its banner. Account email and the duplicate
+wallet strip are not page sections. A shared Updates bell in the web and mobile
+headers opens the Communication inbox on demand. It resolves safe source
+selectors through authorized Waste details and displays the item photo/name,
+plain-language outcome, optional public feedback and a details link. Raw message
+bodies, technical references and URLs are not rendered as customer copy. Missing
+or unauthorized source items use a generic update without exposing item details.
+
+Impact assessments preserve provider/dataset provenance and previous results. Axis uses the backend-authorized assessment endpoints with explicit reasons, confirmation and exact asset revisions. Customer asset details show the accepted environmental assessment and paginated read-only history. CO₂e-to-tonnes conversion is carbon equivalent, not credit issuance; existing reward balances remain separate.
