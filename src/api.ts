@@ -19,7 +19,13 @@ export type EnvironmentalIndicator = {
   label: string;
   unitOfMeasure: string;
   value: string | null;
-  status: "NOT_ASSESSED" | "ILLUSTRATIVE" | "ESTIMATED" | "CONFIRMED" | "RECALCULATED" | "FAILED";
+  status:
+    | "NOT_ASSESSED"
+    | "ILLUSTRATIVE"
+    | "ESTIMATED"
+    | "CONFIRMED"
+    | "RECALCULATED"
+    | "FAILED";
   basis: string | null;
   requirements: string[];
   reason: string | null;
@@ -31,8 +37,28 @@ export type EnvironmentalAssessment = {
   assessedAt: string;
   publicClaimAllowed: false;
   indicators: EnvironmentalIndicator[];
-  inputs?: { weightKg?: number; weightSource?: string; quantity?: number; defaultUnitWeightKg?: number; weightMinKg?: number; weightMaxKg?: number; weightBasis?: string; weightConfidence?: number; itemTypeCode?: string; categoryCode?: string };
-  factors?: { factorKgCO2ePerKg?: number; factorSource?: string; factorSetVersion?: string; savingsMinKgCO2e?: number; savingsMaxKgCO2e?: number; baselineFactor?: number; treatmentFactor?: number; sourceFactorUnit?: string };
+  inputs?: {
+    weightKg?: number;
+    weightSource?: string;
+    quantity?: number;
+    defaultUnitWeightKg?: number;
+    weightMinKg?: number;
+    weightMaxKg?: number;
+    weightBasis?: string;
+    weightConfidence?: number;
+    itemTypeCode?: string;
+    categoryCode?: string;
+  };
+  factors?: {
+    factorKgCO2ePerKg?: number;
+    factorSource?: string;
+    factorSetVersion?: string;
+    savingsMinKgCO2e?: number;
+    savingsMaxKgCO2e?: number;
+    baselineFactor?: number;
+    treatmentFactor?: number;
+    sourceFactorUnit?: string;
+  };
   methodology: {
     formulaVersion: string | null;
     profileCode: string;
@@ -49,19 +75,78 @@ export type EnvironmentalAssessment = {
     systemBoundary?: string;
     referenceYear?: string | number;
   };
-  carbonCredits: { status: "NOT_ASSESSED"; issuedQuantity: null; registryReference: null; reason: string };
+  carbonCredits: {
+    status: "NOT_ASSESSED";
+    issuedQuantity: null;
+    registryReference: null;
+    reason: string;
+  };
 };
-export type DescriptorRange = { min: number | null; max: number | null; unit: string; basis: string; confidence?: number | null };
+export type DescriptorRange = {
+  min: number | null;
+  max: number | null;
+  unit: string;
+  basis: string;
+  confidence?: number | null;
+};
 export type ItemDescriptor = {
-  evidenceReview?: { manualApprovalRequired: boolean; manualApprovalRecorded: boolean; label: string; message: string | null; customerMessage?: string; reason: string | null; sourceLabel: string };
-  contractVersion: 1; code: string; status: string; stage: string; requiresClassificationReview?: boolean;
-  identity: { name: string | null; description: string | null; brand: string | null; model: string | null };
-  classification: Record<'family' | 'category' | 'itemType', { code: string | null; name: { en?: string } | string | null }>;
-  physical: { quantity: number | null; size: { value: string; basis: string }; weight: { value: string | null; unit: string; basis: string }; weightEstimate: DescriptorRange; dimensionsEstimate: Record<'length' | 'width' | 'height', DescriptorRange> | null };
-  materials: { ref: Ref; name: { en?: string } | string | null; kind: string; basis: string; confidence: number | null }[];
+  evidenceReview?: {
+    manualApprovalRequired: boolean;
+    manualApprovalRecorded: boolean;
+    label: string;
+    message: string | null;
+    customerMessage?: string;
+    reason: string | null;
+    sourceLabel: string;
+  };
+  contractVersion: 1;
+  code: string;
+  status: string;
+  stage: string;
+  requiresClassificationReview?: boolean;
+  identity: {
+    name: string | null;
+    description: string | null;
+    brand: string | null;
+    model: string | null;
+  };
+  classification: Record<
+    "family" | "category" | "itemType",
+    { code: string | null; name: { en?: string } | string | null }
+  >;
+  physical: {
+    quantity: number | null;
+    size: { value: string; basis: string };
+    weight: { value: string | null; unit: string; basis: string };
+    weightEstimate: DescriptorRange;
+    dimensionsEstimate: Record<
+      "length" | "width" | "height",
+      DescriptorRange
+    > | null;
+  };
+  materials: {
+    ref: Ref;
+    name: { en?: string } | string | null;
+    kind: string;
+    basis: string;
+    confidence: number | null;
+  }[];
   condition: { value: string; basis: string };
-  environment: { assessment: EnvironmentalAssessment | null; provisional: boolean; observations: { recyclability: { value: string; basis: string }; contamination: { value: string; basis: string }; recoveryPotential: { value: string; basis: string }; hazards: { code: string; basis: string }[] } };
-  review: { decision: string | null; comment: string | null; reviewedAt: string | null };
+  environment: {
+    assessment: EnvironmentalAssessment | null;
+    provisional: boolean;
+    observations: {
+      recyclability: { value: string; basis: string };
+      contamination: { value: string; basis: string };
+      recoveryPotential: { value: string; basis: string };
+      hazards: { code: string; basis: string }[];
+    };
+  };
+  review: {
+    decision: string | null;
+    comment: string | null;
+    reviewedAt: string | null;
+  };
 };
 export type Submission = {
   descriptor?: ItemDescriptor;
@@ -100,7 +185,11 @@ export type Submission = {
       confidence: string;
       recognition?: {
         contractVersion: number;
-        taxonomyMatch?: { kind: "EXACT" | "GENERIC_FALLBACK"; itemTypeCode: string; categoryCode: string };
+        taxonomyMatch?: {
+          kind: "EXACT" | "GENERIC_FALLBACK";
+          itemTypeCode: string;
+          categoryCode: string;
+        };
         materials: { ref: Ref; basis: string; confidence: number }[];
         weight: { value: number | null; unit: string; basis: string };
         size: { value: string; basis: string; policyVersion: string | null };
@@ -292,7 +381,8 @@ export async function request<T>(
       );
     }
   } catch (cause) {
-    if (options.signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+    if (options.signal?.aborted)
+      throw new DOMException("Request cancelled", "AbortError");
     if (controller.signal.aborted)
       throw new ApiError(
         "The connection is taking too long. Please try again; your saved progress is retained.",
@@ -328,7 +418,11 @@ function customerCsrf(): string {
   const value = document.cookie
     .split(";")
     .map((v) => v.trim())
-    .find((v) => v.startsWith("nodics_customer_csrf="));
+    .find((v) =>
+      v.startsWith(
+        `${import.meta.env.VITE_CUSTOMER_CSRF_COOKIE_NAME || "nodics_customer_csrf"}=`,
+      ),
+    );
   return value ? decodeURIComponent(value.slice(value.indexOf("=") + 1)) : "";
 }
 /** Access credentials live only in memory; discard the legacy browser-storage copy. */
@@ -377,7 +471,9 @@ export function commandKey(): string {
 export function nameOf(value?: { en?: string } | string): string {
   return typeof value === "string" ? value : value?.en || "";
 }
-export function photoOf(asset: { metadata?: { photo?: { url?: string } } }): string {
+export function photoOf(asset: {
+  metadata?: { photo?: { url?: string } };
+}): string {
   return asset.metadata?.photo?.url || "/media/asset-laptop.svg";
 }
 export function statusLabel(status: string): string {
@@ -407,5 +503,27 @@ export function originalRewardOf(asset: Asset): string | number {
   );
 }
 
-export type SavedImpactAssessment = { code: string; accepted: boolean; calculatedAt: string; calculationStatus: string; assessment: EnvironmentalAssessment | null; reason?: string | null };
-export type ImpactAssessmentHistory = { acceptedAssessmentCode: string | null; total: number; page: number; limit: number; items: SavedImpactAssessment[]; selectionHistory?: { total: number; items: { code: string; assessmentCode: string; at: string; reason: string }[] } };
+export type SavedImpactAssessment = {
+  code: string;
+  accepted: boolean;
+  calculatedAt: string;
+  calculationStatus: string;
+  assessment: EnvironmentalAssessment | null;
+  reason?: string | null;
+};
+export type ImpactAssessmentHistory = {
+  acceptedAssessmentCode: string | null;
+  total: number;
+  page: number;
+  limit: number;
+  items: SavedImpactAssessment[];
+  selectionHistory?: {
+    total: number;
+    items: {
+      code: string;
+      assessmentCode: string;
+      at: string;
+      reason: string;
+    }[];
+  };
+};

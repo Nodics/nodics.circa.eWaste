@@ -22,7 +22,10 @@ const wallet: Wallet = {
   entries: [],
 };
 const call = vi.mocked(request);
-beforeEach(() => call.mockReset());
+beforeEach(() => {
+  call.mockReset();
+  call.mockResolvedValue(wallet);
+});
 afterEach(cleanup);
 function view(value = offer) {
   const complete = vi.fn();
@@ -45,16 +48,20 @@ it("opening and cancelling purchase review never sends a transaction", async () 
   );
   const dialog = screen.getByRole("dialog", { name: "Review your purchase" });
   expect(within(dialog).getByText("90 points")).toBeVisible();
-  expect(call).not.toHaveBeenCalled();
+  expect(call).toHaveBeenCalledWith(
+    "/nodics/eWaste/v0/wallet",
+    expect.anything(),
+  );
   await user.click(
     within(dialog).getByRole("button", { name: "Close dialog" }),
   );
-  expect(call).not.toHaveBeenCalled();
+  expect(call).toHaveBeenCalledTimes(1);
 });
 it("only explicit confirmation submits the reviewed revision; retries reuse the idempotency key", async () => {
   const user = userEvent.setup();
   const complete = view();
   call
+    .mockResolvedValueOnce(wallet)
     .mockRejectedValueOnce(new Error("Temporary failure"))
     .mockResolvedValueOnce({ code: "ORDER_1", entitlementCode: "ENT_1" });
   await user.click(
@@ -68,14 +75,14 @@ it("only explicit confirmation submits the reviewed revision; retries reuse the 
   );
   await screen.findByText("Your coupon is ready.");
   expect(complete).toHaveBeenCalledTimes(1);
-  expect(call.mock.calls[0][0]).toBe(
+  expect(call.mock.calls[1][0]).toBe(
     "/nodics/eWaste/v0/marketplace/CPN_1/purchase",
   );
-  expect(call.mock.calls[0][2]).toMatchObject({
+  expect(call.mock.calls[1][2]).toMatchObject({
     confirmed: true,
     expectedRevision: "v7",
   });
-  expect(call.mock.calls[1][2]).toEqual(call.mock.calls[0][2]);
+  expect(call.mock.calls[2][2]).toEqual(call.mock.calls[1][2]);
 });
 it("unavailable products cannot open purchase review", () => {
   view({ ...offer, available: false });
@@ -88,4 +95,29 @@ it("asset owners are identified without treating a coupon with no owner as owned
   view({ ...offer, kind: "ASSET", ownerCode: "buyer" });
   expect(screen.getByText("You own this asset.")).toBeVisible();
   expect(screen.queryByRole("button", { name: /Review purchase/ })).toBeNull();
+});
+
+it("purchase review refreshes a stale wallet before displaying the remaining balance", async () => {
+  const user = userEvent.setup();
+  call.mockResolvedValueOnce({
+    ...wallet,
+    balances: [{ rewardTypeCode: "points", available: "125", reserved: "0" }],
+  });
+  view();
+  await user.click(
+    screen.getByRole("button", { name: /Review coupon purchase/ }),
+  );
+  expect(await screen.findByText("115 points")).toBeVisible();
+  expect(call).toHaveBeenCalledTimes(1);
+});
+it("failed balance refresh cannot open a purchase confirmation", async () => {
+  const user = userEvent.setup();
+  call.mockRejectedValueOnce(new Error("Wallet unavailable"));
+  view();
+  await user.click(
+    screen.getByRole("button", { name: /Review coupon purchase/ }),
+  );
+  expect(await screen.findByText("Wallet unavailable")).toBeVisible();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(call).toHaveBeenCalledTimes(1);
 });

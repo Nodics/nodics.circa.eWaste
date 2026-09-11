@@ -1688,6 +1688,8 @@ dd {
   gap: 12px;
 }
 .purchase-receipt {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 20px;
   background: #edf6e6;
   border: 1px solid #c8dfb7;
@@ -2995,24 +2997,94 @@ form.assistant-composer > button:disabled {
   outline: 2px solid currentColor;
 }
 
-.customer-authentication > p { font-size: 13px; line-height: 1.6; }
-.customer-authentication form { display: grid; gap: 14px; margin-top: 20px; }
-.telegram-journey .customer-authentication { padding: 20px; border: 1px solid #d5dfd1; border-radius: 12px; background: #fff; }
-.customer-authentication h2 { font-size: 23px; margin: 0; }
+.customer-authentication > p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.customer-authentication form {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+.telegram-journey .customer-authentication {
+  padding: 20px;
+  border: 1px solid #d5dfd1;
+  border-radius: 12px;
+  background: #fff;
+}
+.customer-authentication h2 {
+  font-size: 23px;
+  margin: 0;
+}
 
 /* The native viewport resizes for the keyboard; keep long journeys inside one scroll surface. */
-.telegram-shell { height: var(--tg-viewport-height, 100dvh); min-height: 0; color: #243c2d; color-scheme: light; background: #fafcf8; padding-top: max(env(safe-area-inset-top), var(--tg-content-safe-area-inset-top, 0px)); padding-bottom: max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)); }
-.telegram-shell .telegram-journey { height: 100%; min-height: 0; }
-.telegram-shell .assistant-scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.telegram-shell .assistant-header { background: #eef3eb; color: #243c2d; }
-.telegram-shell .assistant-header strong { font-size: 15px; }
-.telegram-shell .assistant-header small { font-size: 12px; }
-.telegram-shell .conversation-card p, .telegram-shell .journey-history p, .telegram-shell .journey-progress { font-size: 14px; }
-.telegram-shell .conversation-card .primary, .telegram-shell .conversation-card .secondary { min-height: 44px; font-size: 14px; }
-.telegram-shell input, .telegram-shell select, .telegram-shell textarea { font-size: 16px; }
-.telegram-shell .assistant-composer { flex-shrink: 0; }
-.telegram-shell .assistant-composer input { min-width: 0; }
-.telegram-shell .assistant-composer button { min-width: 44px; min-height: 44px; }
+.telegram-shell {
+  height: var(--tg-viewport-height, 100dvh);
+  min-height: 0;
+  color: #243c2d;
+  color-scheme: light;
+  background: #fafcf8;
+  padding-top: max(
+    env(safe-area-inset-top),
+    var(--tg-content-safe-area-inset-top, 0px)
+  );
+  padding-bottom: max(
+    env(safe-area-inset-bottom),
+    var(--tg-content-safe-area-inset-bottom, 0px)
+  );
+}
+.telegram-shell .telegram-journey {
+  height: 100%;
+  min-height: 0;
+}
+.telegram-shell .assistant-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.telegram-shell .assistant-header {
+  background: #eef3eb;
+  color: #243c2d;
+}
+.telegram-shell .assistant-header strong {
+  font-size: 15px;
+}
+.telegram-shell .assistant-header small {
+  font-size: 12px;
+}
+.telegram-shell .conversation-card p,
+.telegram-shell .journey-history p,
+.telegram-shell .journey-progress {
+  font-size: 14px;
+}
+.telegram-shell .conversation-card .primary,
+.telegram-shell .conversation-card .secondary {
+  min-height: 44px;
+  font-size: 14px;
+}
+.telegram-shell input,
+.telegram-shell select,
+.telegram-shell textarea {
+  font-size: 16px;
+}
+.telegram-shell .assistant-composer {
+  flex-shrink: 0;
+}
+.telegram-shell .assistant-composer input {
+  min-width: 0;
+}
+.telegram-shell .assistant-composer button {
+  min-width: 44px;
+  min-height: 44px;
+}
 
-.screen-recovery { max-width: 520px; padding: 28px; margin: 30px auto; color: #243c2d; background: #fff; }
-.screen-recovery h1 { font-size: 26px; }
+.screen-recovery {
+  max-width: 520px;
+  padding: 28px;
+  margin: 30px auto;
+  color: #243c2d;
+  background: #fff;
+}
+.screen-recovery h1 {
+  font-size: 26px;
+}

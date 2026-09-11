@@ -82,7 +82,6 @@ the same versioned Location endpoint; do not introduce storefront-owned provider
 settings or copy customer access policy into the map. The frontend Location Map
 adapter converts named latitude/longitude values at the provider boundary.
 
-
 Sharing browser location places a distinct red **You** marker in either map
 renderer and centers the map there. The marker stays visible through centre
 filtering and expansion; sharing again replaces its position. Permission denial
@@ -115,7 +114,6 @@ location/photo/analysis/review. It uses emulated Chromium geolocation at the sam
 is Web integration evidence, not native Telegram camera/location qualification.
 `CIRCA_EVIDENCE_DIR` selects the screenshot/result directory. Bot credentials belong
 only in the ignored backend environment; a public HTTPS launch URL is still needed.
-
 
 `CustomerAuthentication` is the single Web and Telegram sign-in/registration
 component. Both use email/password sign-in and name/email/password registration
@@ -212,7 +210,6 @@ sign-in and opens the authorized full item page. It does not substitute another
 saved draft. Record codes are bounded selectors, never credentials; the backend
 still enforces ownership. Reviewed list titles use the owner-projected identity.
 
-
 ## Customer item workspace
 
 My Account and mobile/Telegram Items share `CustomerWasteWorkspace`: owner-scoped
@@ -242,7 +239,6 @@ the documented local sample customer, exercises listing/detail/reload/filter and
 mobile navigation, and cancels command previews. It does not submit trades or
 prove native Telegram WebView acceptance.
 
-
 The customer listing starts with its banner. Account email and the duplicate
 wallet strip are not page sections. A shared Updates bell in the web and mobile
 headers opens the Communication inbox on demand. It resolves safe source
@@ -252,3 +248,5 @@ bodies, technical references and URLs are not rendered as customer copy. Missing
 or unauthorized source items use a generic update without exposing item details.
 
 Impact assessments preserve provider/dataset provenance and previous results. Axis uses the backend-authorized assessment endpoints with explicit reasons, confirmation and exact asset revisions. Customer asset details show the accepted environmental assessment and paginated read-only history. CO₂e-to-tonnes conversion is carbon equivalent, not credit issuance; existing reward balances remain separate.
+
+Purchase review refreshes the customer wallet before displaying the remaining balance. A failed refresh leaves confirmation unavailable; the backend still authorizes and settles the confirmed transaction.

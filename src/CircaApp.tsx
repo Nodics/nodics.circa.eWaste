@@ -609,7 +609,7 @@ function WalletPage({
         <div>
           <span className="eyebrow">Value you can follow</span>
           <h1>Your wallet</h1>
-          <p>Available balances and a history of every recorded change.</p>
+          <p>Available balances and your latest recorded transactions.</p>
         </div>
         <a href="/account" className="text-link">
           My Account <ArrowUpRight size={16} />
@@ -638,6 +638,7 @@ export function TransactionPage({
   onComplete: () => void;
 }) {
   const [review, setReview] = useState(false),
+    [reviewWallet, setReviewWallet] = useState<Wallet | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [result, setResult] = useState<{
@@ -646,9 +647,37 @@ export function TransactionPage({
       entitlementCode?: string;
     } | null>(null),
     key = useRef(commandKey());
+  const currentWallet = reviewWallet || wallet;
   const balance = Number(
-    wallet?.balances.find((b) => b.rewardTypeCode === "points")?.available || 0,
+    currentWallet?.balances.find((b) => b.rewardTypeCode === "points")
+      ?.available || 0,
   );
+  async function openReview() {
+    if (!session || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const latest = await request<Wallet>(`${API}/wallet`, session);
+      setReviewWallet(latest);
+      const available = Number(
+        latest.balances.find((b) => b.rewardTypeCode === "points")?.available ||
+          0,
+      );
+      if (available < offer.rewardPrice) {
+        setError("More points are needed for this purchase.");
+        return;
+      }
+      setReview(true);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Your balance could not be refreshed. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="catalogue-purchase">
       {result ? (
@@ -677,29 +706,24 @@ export function TransactionPage({
             <>
               <p>
                 Your available balance:{" "}
-                {wallet ? `${balance} points` : "Loading…"}
+                {currentWallet ? `${balance} points` : "Loading…"}
               </p>
               {offer.kind === "ASSET" &&
               offer.ownerCode &&
-              offer.ownerCode === wallet?.wallet.ownerCode ? (
+              offer.ownerCode === currentWallet?.wallet.ownerCode ? (
                 <p>You own this asset.</p>
               ) : (
                 <button
                   className="primary"
-                  disabled={
-                    !wallet ||
-                    balance < offer.rewardPrice ||
-                    busy ||
-                    offer.available === false
-                  }
-                  onClick={() => setReview(true)}
+                  disabled={busy || offer.available === false}
+                  onClick={() => void openReview()}
                 >
-                  Review{" "}
+                  {busy ? "Checking balance…" : "Review"}{" "}
                   {offer.kind === "ASSET" ? "purchase" : "coupon purchase"}{" "}
                   <ArrowRight size={16} />
                 </button>
               )}
-              {wallet && balance < offer.rewardPrice && (
+              {currentWallet && balance < offer.rewardPrice && (
                 <p>More points are needed for this purchase.</p>
               )}
             </>

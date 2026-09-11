@@ -31,7 +31,7 @@ export function CustomerWallet({ wallet }: { wallet: Wallet }) {
         Carbon units are rewards. They are separate from CO₂e savings and are
         not issued carbon credits.
       </p>
-      <h2>Transaction history</h2>
+      <h2>Recent transactions</h2>
       <div className="ledger">
         {wallet.entries.map((entry) => (
           <div key={entry.code}>
