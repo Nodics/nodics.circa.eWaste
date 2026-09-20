@@ -60,7 +60,7 @@ export function CollectionMap({ centres, onChoose }: { centres: Centre[]; onChoo
         const distance = formatCentreDistance(centreDistanceMetres(centre, location));
         return <button key={centre.code} className={`centre-row ${selected?.code === centre.code ? 'selected' : ''}`} onClick={() => setSelected(centre)}>
           <MapPin size={18} style={{ color: category?.color }} />
-          <span className="centre-row-content"><span className="centre-row-title"><strong>{nameOf(centre.name)}</strong>{distance && <span className="centre-distance" title="Approximate straight-line distance from your location" aria-label={`${distance} away, straight-line distance`}>{distance}</span>}</span><small>{category?.label}{category ? ' · ' : ''}{centre.addressLine || centre.city || 'Select for collection details'}</small>{selected?.code === centre.code && <small>{centre.metadata?.hours || 'Confirm opening hours before visiting.'}</small>}</span>
+          <span className="centre-row-content"><span className="centre-row-title"><strong>{nameOf(centre.name)}</strong>{distance && <span className="centre-distance" title="Approximate direct distance from your location" aria-label={`${distance} from your location`}>{distance}</span>}</span><small>{category?.label}{category ? ' · ' : ''}{centre.addressLine || centre.city || 'Select for collection details'}</small>{selected?.code === centre.code && <small>{centre.metadata?.hours || 'Confirm opening hours before visiting.'}</small>}</span>
         </button>;
       })}
       {!visible.length && <p>No collection centres match your selection.</p>}

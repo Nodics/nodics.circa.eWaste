@@ -14,3 +14,12 @@ Circa is the customer frontend for Nodics EXP. It consumes the single eWaste dom
 
 - Run `npm run verify` for local checks.
 - Visually verify the customer site in a browser after customer-facing changes.
+
+Frontend startup is independent of backend health. Keep unavailable/retry UI and
+frontend tests in this application. Backend API acceptance must never start or
+test this frontend. Container deployment is owned by [docker/README.md](docker/README.md).
+
+Environmental benefit cards render only provider-calculated metrics with valid
+assessment status. Show saved carbon/energy/weight ranges and method context; keep
+missing metrics null in transport, consolidate absent outcomes, and never convert
+prospective input mass into completed diversion or carbon into energy/credits.

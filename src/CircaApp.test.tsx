@@ -322,7 +322,7 @@ describe("connected Circa journeys", () => {
     const user = userEvent.setup();
     await screen.findByLabelText("Collection centre map");
     await user.click(
-      screen.getByRole("button", { name: "Open Submit Waste assistant" }),
+      within(screen.getByRole("region", { name: "Recycling actions" })).getByRole("button", { name: "Submit eWaste" }),
     );
     await screen.findByText("Take a photo. We’ll identify your item.");
     expect(
@@ -342,10 +342,10 @@ describe("connected Circa journeys", () => {
       "draft-1",
     );
     await user.click(
-      screen.getByRole("button", { name: "Minimize assistant" }),
+      screen.getByRole("button", { name: "Minimize submission" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Open Submit Waste assistant" }),
+      within(screen.getByRole("region", { name: "Recycling actions" })).getByRole("button", { name: "Submit eWaste" }),
     );
     await screen.findByText("Take a photo. We’ll identify your item.");
     expect(screen.getByText("Community collection centre")).toBeInTheDocument();
@@ -355,4 +355,47 @@ describe("connected Circa journeys", () => {
       { code: "one" },
     ]);
   });
+});
+
+it("retains website submission intent through sign-in from a secondary page", async () => {
+  history.replaceState({}, "", "/account/wallet");
+  render(<CircaApp/>);
+  const user = userEvent.setup();
+  await user.click(within(screen.getByRole("region", {name:"Recycling actions"})).getByRole("button", {name:"Submit eWaste"}));
+  const submission = screen.getByRole("region", {name:"eWaste submission"});
+  expect(screen.queryByRole("region", {name:"Recycling actions"})).not.toBeInTheDocument();
+  await user.click(within(submission).getByRole("button", {name:"Sign in or register"}));
+  const dialog = screen.getByRole("dialog", {name:"Welcome back"});
+  await user.type(within(dialog).getByLabelText("Email address"), "customer@example.test");
+  await user.type(within(dialog).getByLabelText("Password"), "example password");
+  await user.click(within(dialog).getByRole("button", {name:"Sign in"}));
+  await within(submission).findByText("Take a photo. We’ll identify your item.");
+  expect(location.pathname).toBe("/account/wallet");
+  expect(calls.some(call => /confirm|purchase/.test(call.url) && call.method === "POST")).toBe(false);
+});
+
+it.each(["ERR_CIRCA_POSITION_IMPRECISE", "ERR_CIRCA_POSITION_ACCURACY_REQUIRED"])("lets a laptop user browse centres after %s without confirming arrival", async code => {
+  const original = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (...args) => {
+    if (String(args[0]).endsWith("/arrival")) {
+      return new Response(JSON.stringify({code, message:"Device accuracy rejected"}), {status:400});
+    }
+    return original(...args);
+  });
+  saveSession({token:"test", loginId:"customer@example.test"});
+  render(<CircaApp/>);
+  const user = userEvent.setup();
+  await user.click(within(screen.getByRole("region", {name:"Recycling actions"})).getByRole("button", {name:"Submit eWaste"}));
+  const panel = screen.getByRole("region", {name:"eWaste submission"});
+  await within(panel).findByRole("heading", {name:"We couldn’t confirm your location"});
+  expect(within(panel).queryByText("Finding your nearest centre")).not.toBeInTheDocument();
+  expect(within(panel).getByText(/You can still browse collection centres.*Nothing has been submitted/)).toHaveTextContent("Nothing has been submitted.");
+  expect(within(panel).queryByLabelText("Take item photo")).not.toBeInTheDocument();
+  expect(within(panel).getByRole("button", {name:"Check location again"})).toBeEnabled();
+  const browse = within(panel).getByRole("link", {name:"Browse collection centres"});
+  expect(browse).toHaveAttribute("href", "/#centres");
+  await user.click(browse);
+  expect(screen.queryByRole("region", {name:"eWaste submission"})).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Collection centre map")).toBeInTheDocument();
+  expect(calls.some(call => /prepare|confirm/.test(call.url) && call.method === "POST")).toBe(false);
 });

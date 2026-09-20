@@ -21,7 +21,10 @@ export function centreDistanceMetres(centre: Centre, origin: MapPosition | null)
 /** Formats approximate straight-line distance at a useful display precision. */
 export function formatCentreDistance(distance: number | null): string | null {
   if (distance === null || !Number.isFinite(distance) || distance < 0) return null;
-  return Math.round(distance) < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`;
+  const value = Math.round(distance) < 1000
+    ? `${Math.round(distance)} m`
+    : `${(distance / 1000).toFixed(1)} km`;
+  return `${value} direct`;
 }
 
 /** Sorts this displayed list by straight-line distance without changing the source order. */

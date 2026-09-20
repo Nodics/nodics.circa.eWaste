@@ -1,5 +1,6 @@
 /** Customer transport; all balances, ownership and draft revisions are server-authoritative. */
 export type Facts = {
+  submissionUnit?: "BUNDLE";
   name?: string;
   description?: string;
   categoryCode?: string;
@@ -37,6 +38,7 @@ export type EnvironmentalAssessment = {
   assessedAt: string;
   publicClaimAllowed: false;
   indicators: EnvironmentalIndicator[];
+  metricEvidence?: { metricCode: string; min: number; max: number; sourceUrl: string; explanation: string }[];
   inputs?: {
     weightKg?: number;
     weightSource?: string;
@@ -55,6 +57,8 @@ export type EnvironmentalAssessment = {
     factorSetVersion?: string;
     savingsMinKgCO2e?: number;
     savingsMaxKgCO2e?: number;
+    energyMinKWh?: number;
+    energyMaxKWh?: number;
     baselineFactor?: number;
     treatmentFactor?: number;
     sourceFactorUnit?: string;
@@ -65,6 +69,12 @@ export type EnvironmentalAssessment = {
     providerCode: string | null;
     providerVersion?: string;
     assessmentBasis?: string;
+    assessmentLimitation?: string;
+    referenceScenarioVersion?: string;
+    referenceScenarioExplanation?: string;
+    weightReference?: string;
+    weightReferenceUrl?: string;
+    comparisonReferenceUrl?: string;
     isMock: boolean;
     methodologyRef?: string;
     factorDatasetRef?: string;
@@ -98,6 +108,7 @@ export type ItemDescriptor = {
     customerMessage?: string;
     reason: string | null;
     sourceLabel: string;
+    qualityFlags?: string[];
   };
   contractVersion: 1;
   code: string;
@@ -116,7 +127,7 @@ export type ItemDescriptor = {
   >;
   physical: {
     quantity: number | null;
-    size: { value: string; basis: string };
+    size: { value: string; basis: string; confidence?: number | null };
     weight: { value: string | null; unit: string; basis: string };
     weightEstimate: DescriptorRange;
     dimensionsEstimate: Record<
@@ -130,10 +141,32 @@ export type ItemDescriptor = {
     kind: string;
     basis: string;
     confidence: number | null;
+    visibility?: string;
+    recoverability?: string;
+  }[];
+  components?: {
+    ref: Ref;
+    name: { en?: string } | string | null;
+    basis: string;
+    confidence: number | null;
+    hazardRelevant?: boolean | null;
+    recoveryRelevant?: boolean | null;
   }[];
   condition: { value: string; basis: string };
   environment: {
     assessment: EnvironmentalAssessment | null;
+    carbonImpact?: {
+      status: EnvironmentalIndicator["status"];
+      indicators: EnvironmentalIndicator[];
+      assessedAt: string | null;
+    };
+    landfillDiversion?: {
+      value: string | null;
+      unit: string;
+      basis: string;
+      status: EnvironmentalIndicator["status"];
+      confidence?: number | null;
+    };
     provisional: boolean;
     observations: {
       recyclability: { value: string; basis: string };
@@ -141,6 +174,18 @@ export type ItemDescriptor = {
       recoveryPotential: { value: string; basis: string };
       hazards: { code: string; basis: string }[];
     };
+  };
+  reward?: {
+    estimatedReward: { rewardTypeCode?: string; amount?: string }[];
+    rewardStatus: string;
+    rewardCalculationVersion: string | null;
+    rewardCalculationBasis: string | null;
+  };
+  metadataQuality?: {
+    unknownFields: string[];
+    lowConfidenceFields: string[];
+    manualVerificationRequired: boolean;
+    completenessScore: number | null;
   };
   review: {
     decision: string | null;
@@ -163,7 +208,7 @@ export type Submission = {
       position: {
         latitude: number;
         longitude: number;
-        accuracy: number;
+        accuracy: number | null;
         capturedAt: number;
       };
       checkedAt: number;

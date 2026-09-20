@@ -846,6 +846,7 @@ export function CircaApp() {
     return () => window.removeEventListener("scroll", updateHeader);
   }, []);
   useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout> | undefined;
     const handler = () => {
       const url = new URL(window.location.href);
       if (
@@ -893,8 +894,9 @@ export function CircaApp() {
       window.dispatchEvent(new PopStateEvent("popstate"));
       setPath(window.location.pathname);
       setMenu(false);
+      clearTimeout(scrollTimer);
       if (url.hash)
-        setTimeout(
+        scrollTimer = setTimeout(
           () =>
             document
               .querySelector(url.hash)
@@ -905,6 +907,7 @@ export function CircaApp() {
     };
     document.addEventListener("click", click);
     return () => {
+      clearTimeout(scrollTimer);
       window.removeEventListener("popstate", handler);
       document.removeEventListener("click", click);
     };
@@ -1232,14 +1235,6 @@ export function CircaApp() {
             className={menu ? "navigation open" : "navigation"}
             aria-label="Main navigation"
           >
-            <button
-              onClick={() => {
-                submit();
-                setMenu(false);
-              }}
-            >
-              Submit Waste
-            </button>
             {items(shell, "navigation").map((link) => {
               const href = text(link, "href");
               return /^\/(?!\/)/.test(href) ? (
@@ -1300,7 +1295,7 @@ export function CircaApp() {
           </div>
           <div>
             <h3>Explore Circa</h3>
-            <button onClick={submit}>Submit Waste</button>
+            <button onClick={submit}>Submit eWaste</button>
             <a href="/shop">Circular assets</a>
             <a href="/coupons">Partner offers</a>
             <a href="/#centres">Collection centres</a>

@@ -22,6 +22,7 @@ export function ItemDetailsCard({
   record,
   image,
   onEdit,
+  onRefreshImpact,
 }: {
   record: {
     code: string;
@@ -39,6 +40,7 @@ export function ItemDetailsCard({
   };
   image?: string;
   onEdit?: () => void;
+  onRefreshImpact?: () => void;
 }) {
   const descriptor = record.descriptor;
   const facts =
@@ -55,6 +57,9 @@ export function ItemDetailsCard({
   const assessment =
     descriptor?.environment.assessment ||
     record.metadata.estimate?.metadata?.environmentalAssessment;
+  const primaryReward = descriptor?.reward?.estimatedReward?.find(
+    (reward) => reward.amount,
+  );
   return (
     <section className="item-detail-card" aria-label="Complete item details">
       {review?.comment && (
@@ -98,9 +103,27 @@ export function ItemDetailsCard({
               descriptor.evidenceReview.message}
           </p>
           <small>{descriptor.evidenceReview.sourceLabel}</small>
+          {!!descriptor.evidenceReview.qualityFlags?.length && (
+            <small>
+              Evidence flags:{" "}
+              {descriptor.evidenceReview.qualityFlags.map(words).join(", ")}
+            </small>
+          )}
         </div>
       )}
       <EnvironmentalImpactCard assessment={assessment || undefined} />
+      {onRefreshImpact && <button className="item-detail-edit" onClick={onRefreshImpact}>Update impact estimate</button>}
+      {primaryReward && (
+        <div className="item-detail-reward" role="note">
+          <strong>Estimated reward</strong>
+          <p>
+            {primaryReward.amount} {primaryReward.rewardTypeCode || "reward"}
+            {descriptor?.reward?.rewardStatus
+              ? ` · ${words(descriptor.reward.rewardStatus)}`
+              : ""}
+          </p>
+        </div>
+      )}
       <div className="item-detail-purpose">
         <Leaf size={19} />
         <p>
@@ -176,7 +199,7 @@ export function ItemSpecifications({
         <div>
           <dt>Quantity</dt>
           <dd>
-            {descriptor?.physical.quantity ??
+            {facts.submissionUnit === "BUNDLE" ? "1 bundle (individual count not confirmed)" : descriptor?.physical.quantity ??
               facts.quantity ??
               "Not established"}
           </dd>
@@ -236,6 +259,28 @@ export function ItemSpecifications({
       ) : (
         <p>Material composition has not been established.</p>
       )}
+      {!!descriptor?.components?.length && (
+        <>
+          <h3>Recognized components</h3>
+          <ul className="item-materials">
+            {descriptor.components.map((component) => (
+              <li key={component.ref.code}>
+                <strong>
+                  {nameOf(component.name || undefined) ||
+                    words(component.ref.code)}
+                </strong>
+                <span>{words(component.basis)}</span>
+                {component.confidence != null && (
+                  <small>
+                    {Math.round(component.confidence * 100)}% analysis
+                    confidence
+                  </small>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <h3>Environmental observations</h3>
       <dl>
         <div>
@@ -251,6 +296,14 @@ export function ItemSpecifications({
           <dd>{words(observations?.recoveryPotential.value)}</dd>
         </div>
         <div>
+          <dt>Landfill diversion</dt>
+          <dd>
+            {descriptor?.environment.landfillDiversion?.value
+              ? `${descriptor.environment.landfillDiversion.value} ${descriptor.environment.landfillDiversion.unit.toLowerCase()}`
+              : "Pending calculation"}
+          </dd>
+        </div>
+        <div>
           <dt>Hazard observations</dt>
           <dd>
             {observations?.hazards.length
@@ -264,6 +317,11 @@ export function ItemSpecifications({
           </dd>
         </div>
       </dl>
+      {!!descriptor?.metadataQuality?.unknownFields?.length && (
+        <p className="item-detail-note">
+          Still unknown: {descriptor.metadataQuality.unknownFields.map(words).join(", ")}.
+        </p>
+      )}
       <p className="item-detail-note">
         Image observations and estimates are advisory. No visible hazard does
         not establish that an item is safe. Detailed material quantities and

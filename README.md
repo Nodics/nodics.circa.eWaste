@@ -24,12 +24,22 @@ change. Reloading the website retains those changes.
 
 ## Connected journeys
 
+- **Submit eWaste** is always available above the Telegram/mobile tab bar and
+  through the website's persistent bottom-right recycling button.
+  Sign-in keeps the submission intent. The active journey replaces that entry
+  action with its own step controls; completion offers **Submit another item**.
+  Starting another item preserves saved drafts under **Items → Drafts**.
+  Leaving the mobile journey returns to Items with the correct URL while keeping
+  Telegram launch parameters.
+  Inside Telegram, the submission screen uses native Back and places Help beside
+  the progress steps. Browser clients retain the in-page header and Back control.
+
 - Shop and Coupons share search, filters, sorting, grid/list controls, exact counts and server pagination with the My Account listing controls. Quick view and direct product detail pages preserve the listing URL state; purchasing still requires explicit review and confirmation. See the [catalogue guide](../../nodics.kickoff/modules/circa.ewaste/docs/pages/catalogue.md). Run `node test/live/catalogue-browsing.mjs` for read-only desktop/mobile acceptance.
 
 - Public homepage, three original banner images, asset/coupon previews and a
   Location-backed collection-centre map with an accessible centre list.
 - Shared Web/Telegram submission controls: permission-aware fresh location,
-  100-metre backend arrival policy, private photo, automatic configured-provider
+  configured backend arrival policy, private photo, automatic configured-provider
   analysis, correction, persisted draft and one final confirmation.
 - Telegram host shell at `/telegram`, with backend-validated signed launch and
   shared secure Profile forms. Durable Telegram account linking, source outcome
@@ -175,14 +185,14 @@ verification/registry evidence and are not calculated or issued by the frontend.
 Existing saved drafts without the new metadata remain usable and show a pending
 assessment. Refreshing analysis or saving corrected details recalculates impact.
 
-Telegram location capture tries browser geolocation when the native reading omits
-accuracy or exceeds the backend-provided accuracy policy. It preserves real
-coordinates, accuracy, cancellation and one bounded capture deadline; native
-permission denial does not trigger a second permission path. The backend remains
-the arrival authority. Specific location errors preserve the draft/photo, discard
-the rejected cached observation and offer fresh capture. The mobile location
-action stays visible in its fixed bottom bar. Devices without precise location
-can resume the saved submission in Telegram on a phone.
+Circa arrival uses fresh reported coordinates and direct distance within the
+backend's inclusive configured centre radius. Accuracy is optional metadata and
+does not block arrival on desktop or mobile. Telegram uses native coordinates
+without waiting for accuracy refinement when the backend has no accuracy gate;
+clients without the native capability use browser geolocation. Real coordinates,
+available accuracy and capture timestamps are preserved. Invalid or stale readings
+still require retry, preserving the draft and photo. The backend remains the
+arrival authority.
 
 Customer confirmation, submitted/reviewed outcomes, account detail and marketplace
 asset detail now share `ItemDetailsCard`, driven by the backend's authorized item
@@ -250,3 +260,25 @@ or unauthorized source items use a generic update without exposing item details.
 Impact assessments preserve provider/dataset provenance and previous results. Axis uses the backend-authorized assessment endpoints with explicit reasons, confirmation and exact asset revisions. Customer asset details show the accepted environmental assessment and paginated read-only history. CO₂e-to-tonnes conversion is carbon equivalent, not credit issuance; existing reward balances remain separate.
 
 Purchase review refreshes the customer wallet before displaying the remaining balance. A failed refresh leaves confirmation unavailable; the backend still authorizes and settles the confirmed transaction.
+
+The browser adapter supports bounded accuracy refinement when explicitly requested
+by a backend policy. Circa's distance-based arrival does not request it.
+Centre browsing remains available inside the mobile/Telegram submission flow
+even when location is unavailable, and Back returns to the same draft.
+Browsing and directions do not unlock photo capture or submission; fresh backend
+arrival verification still governs both on every device.
+
+Location recovery distinguishes bot permission from device accuracy. **Open
+Telegram permissions** appears only after denied access, because Telegram's SDK
+ignores that action when access is already granted. **Location help** opens
+visible device instructions for inaccurate/unavailable readings, including the
+macOS settings path. These controls do not change the shared arrival policy.
+
+Environmental benefit cards render only provider-calculated metrics with valid
+assessment status. Show saved carbon/energy/weight ranges and method context; keep
+missing metrics null in transport, consolidate absent outcomes, and never convert
+prospective input mass into completed diversion or carbon into energy/credits.
+
+INPUT_ONLY assessments show available input mass/count and the backend limitation without claiming emissions savings or a landfill comparison. All channels use the same owner-calculated assessment contract.
+
+Mobile centre discovery refreshes from the backend on each screen mount and visible-page resume (visibility, focus and pageshow). Concurrent refreshes are coalesced and aborted on exit. Search/filter state and the last successful list survive refresh failures; submission arrival and centre eligibility remain fresh backend checks.

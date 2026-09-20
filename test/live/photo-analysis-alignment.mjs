@@ -29,7 +29,7 @@ try{
  const centre=experience.centres.find(c=>c.code==='cc-dxb-01');
  await page.context().grantPermissions(['geolocation']);
  await page.context().setGeolocation({latitude:centre.location.latitude,longitude:centre.location.longitude,accuracy:5});
- await page.getByRole('button',{name:'Open Submit Waste assistant'}).click();
+ await page.getByRole('region',{name:'Recycling actions'}).getByRole('button',{name:'Submit eWaste'}).click();
  await page.getByRole('heading',{name:'Take a photo. We’ll identify your item.'}).waitFor();
  const photo=process.env.CIRCA_PHOTO_PATH ? null : await fetch(base+'/nodics/media/v0/content/circa-hero-community');
  if(photo)assert(photo.ok);

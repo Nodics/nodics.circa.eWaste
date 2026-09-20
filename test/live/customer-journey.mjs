@@ -62,7 +62,7 @@ try {
       accuracy: 5,
     });
   await page
-    .getByRole("button", { name: "Open Submit Waste assistant" })
+    .getByRole("region", { name: "Recycling actions" }).getByRole("button", { name: "Submit eWaste" })
     .click();
   await page
     .getByRole("heading", { name: "Take a photo. We’ll identify your item." })

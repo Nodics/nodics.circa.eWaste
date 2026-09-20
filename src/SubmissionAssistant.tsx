@@ -1,4 +1,5 @@
 import { ItemDetailsCard } from "./features/submission/ItemDetailsCard";
+import { LocationAccessHelp } from "./features/submission/LocationAccessHelp";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowUp,
@@ -7,6 +8,7 @@ import {
   MapPin,
   MessageCircle,
   Minus,
+  Recycle,
 } from "lucide-react";
 import {
   nameOf,
@@ -17,6 +19,7 @@ import {
 } from "./api";
 import { useSubmissionJourney } from "./features/submission/useSubmissionJourney";
 import { webJourneyHost, type JourneyHost } from "./channels/journeyHost";
+import { formatCentreDistance } from "./map/sortCentresByDistance";
 
 /** Presents the same backend-governed journey in Web and Telegram shells. */
 export function SubmissionAssistant({
@@ -94,30 +97,34 @@ export function SubmissionAssistant({
   return (
     <>
       {!open && host.kind === "web" && (
+        <div role="region" aria-label="Recycling actions">
         <button
           className="assistant-launcher"
-          aria-label="Open Submit Waste assistant"
           onClick={() => setOpen(true)}
         >
-          <MessageCircle size={22} /> Submit Waste
+          <Recycle size={22} aria-hidden="true" /> Submit eWaste
         </button>
+        </div>
       )}
       {open && (
         <section
           className={`assistant-panel ${host.kind === "telegram" ? "telegram-journey" : ""}`}
-          aria-label="Submit Waste assistant"
+          aria-label="eWaste submission"
         >
           <header className="assistant-header">
             <div>
-              <strong>Circa recycling assistant</strong>
-              <small>A photo is all we need to get started</small>
+              <strong>Submit your eWaste</strong>
+              <small>Choose a centre, add a photo, then review.</small>
             </div>
             {host.kind === "web" && (
               <button
-                aria-label="Minimize assistant"
+                className="assistant-minimize"
+                type="button"
+                aria-label="Minimize submission"
+                title="Minimize submission"
                 onClick={() => setOpen(false)}
               >
-                <Minus />
+                <Minus size={20} aria-hidden="true" />
               </button>
             )}
           </header>
@@ -176,11 +183,7 @@ export function SubmissionAssistant({
                               {c.addressLine} {c.city}
                             </p>
                             <small>
-                              {c.distanceMetres !== undefined
-                                ? c.distanceMetres < 1000
-                                  ? `${Math.round(c.distanceMetres)} m`
-                                  : `${(c.distanceMetres / 1000).toFixed(1)} km`
-                                : ""}
+                              {formatCentreDistance(c.distanceMetres ?? null) || ""}
                             </small>
                             <button
                               className="text-button"
@@ -226,9 +229,11 @@ export function SubmissionAssistant({
                     ) : (
                       <>
                         <h3>
-                          {permission === "checking" || permission === "granted"
+                          {busy
                             ? "Finding your nearest centre"
-                            : "Find your nearest collection centre"}
+                            : error
+                              ? "We couldn’t confirm your location"
+                              : "Find your nearest collection centre"}
                         </h3>
                         {["prompt", "denied", "unavailable"].includes(
                           permission,
@@ -251,15 +256,15 @@ export function SubmissionAssistant({
                               : "Check location again"}
                           </button>
                         )}
-                        {permission === "denied" &&
-                          host.openLocationSettings && (
-                            <button
-                              className="text-button"
-                              onClick={host.openLocationSettings}
-                            >
-                              Open location settings
-                            </button>
-                          )}
+                        <LocationAccessHelp host={host} permission={permission} hasError={!!error}/>
+                        {!busy && error && host.kind === "web" && (
+                          <>
+                            <p>You can still browse collection centres and plan your visit on this computer.</p>
+                            <a className="secondary full" href="/#centres" onClick={() => setOpen(false)}>
+                              Browse collection centres
+                            </a>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
@@ -341,7 +346,7 @@ export function SubmissionAssistant({
                     )}
                     {ready && !editing && (
                       <div className="conversation-card review-card">
-                        {draft && <ItemDetailsCard record={draft} onEdit={!busy ? showEditor : undefined}/>}
+                        {draft && <ItemDetailsCard record={draft} onEdit={!busy ? showEditor : undefined} onRefreshImpact={!busy ? journey.refreshImpact : undefined}/>}
                         <button
                           className="text-button"
                           disabled={!!busy}
@@ -434,12 +439,12 @@ export function SubmissionAssistant({
                       )}
                     {draft && <ItemDetailsCard record={draft} image={preview}/>}
                     <small>{draft?.code}</small>
+                    <button className="primary full" onClick={journey.startNew}>
+                      Submit another item
+                    </button>
                     <a className="secondary full" href="/account" onClick={() => setOpen(false)}>
                       View My Account
                     </a>
-                    <button className="text-button" onClick={journey.startNew}>
-                      Submit another item
-                    </button>
                   </div>
                 )}
                 {journey.messages.length > 0 && (

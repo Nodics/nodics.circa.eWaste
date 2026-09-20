@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(env.VITE_CIRCA_PORT ?? 3600),
       strictPort: true,
+      allowedHosts: [".trycloudflare.com"],
       proxy: {
         "/nodics/commsApi": {target:env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4340",changeOrigin:true},
         "/nodics/locationMap": {

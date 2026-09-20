@@ -1,11 +1,13 @@
 import { ItemDetailsCard } from "../features/submission/ItemDetailsCard";
+import { LocationAccessHelp } from "../features/submission/LocationAccessHelp";
 import type { Content } from "../cms";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ImagePlus, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ImagePlus, MapPin, MessageCircle, Plus, ShieldCheck } from "lucide-react";
 import { nameOf, type Experience, type Facts, type Session } from "../api";
 import type { JourneyHost } from "../channels/journeyHost";
 import { useSubmissionJourney } from "../features/submission/useSubmissionJourney";
 import { CentreCard, LeaveDialog, MobileHeader, MobileNotice } from "./MobilePrimitives";
+import { MobileCentres } from "./MobileCentres";
 
 const editableValues = (facts: Facts) => [facts.name || "", facts.description || ""];
 
@@ -19,6 +21,7 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
   const [previousStep, setPreviousStep] = useState<"centre" | "photo" | null>(null);
   const [help, setHelp] = useState(false), [message, setMessage] = useState("");
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [browsingCentres, setBrowsingCentres] = useState(false);
   const originalFacts = useRef<Facts>({});
   const hasUnsavedEdits = editing && editableValues(facts).some((value, index) => value !== editableValues(originalFacts.current)[index]);
   const content = useRef<HTMLDivElement>(null);
@@ -28,47 +31,55 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
   const goBack = useCallback(() => {
     if (busy) return;
     if (help) { setHelp(false); return; }
+    if (browsingCentres) { setBrowsingCentres(false); return; }
     if (editing) { if (hasUnsavedEdits) setDiscardOpen(true); else setEditing(false); return; }
     if (step === "review") { setPreviousStep("photo"); return; }
     if (step === "photo") { setPreviousStep("centre"); return; }
     onExit();
-  }, [busy, help, editing, hasUnsavedEdits, step, onExit]);
+  }, [busy, help, browsingCentres, editing, hasUnsavedEdits, step, onExit]);
   useEffect(() => host.bindBack?.(goBack), [host, goBack]);
   useEffect(() => { host.setClosingConfirmation?.(Boolean(busy || hasUnsavedEdits)); return () => host.setClosingConfirmation?.(false); }, [host, busy, hasUnsavedEdits]);
-  useEffect(() => { if (content.current) content.current.scrollTop = 0; }, [step, help]);
+  useEffect(() => { if (content.current) content.current.scrollTop = 0; }, [step, help, browsingCentres]);
   const beginEdit = () => { originalFacts.current = { ...draft?.submittedFacts }; setFacts({ ...originalFacts.current }); setEditing(true); };
   const selectPhoto = async (file?: File) => { if (file) { setPreviousStep(null); await journey.upload(file); } };
   const stepIndex = step === "centre" ? 0 : step === "photo" ? 1 : 2;
+  const nativeNavigation = host.kind === "telegram" && !!host.bindBack;
+  const helpAction = <button className="mobile-icon" aria-label={help ? "Close help" : "Get help"} disabled={!!busy} onClick={() => setHelp(!help)}><MessageCircle size={21}/></button>;
+  const progress = !submitted && <nav className="mobile-progress" aria-label="Submission progress">{["Centre", "Photo", "Review"].map((label, index) => <span key={label} aria-current={index === stepIndex ? "step" : undefined} className={index < stepIndex ? "complete" : ""}><b>{index < stepIndex ? <Check size={13}/> : `0${index + 1}`}</b>{label}</span>)}</nav>;
   return <section className="mobile-app mobile-flow" aria-label="Recycling submission">
-    <MobileHeader branding={branding} title={submitted ? "Submission details" : "Recycle an item"} back={goBack} action={<button className="mobile-icon" aria-label={help ? "Close help" : "Get help"} disabled={!!busy} onClick={() => setHelp(!help)}><MessageCircle size={21}/></button>}/>
-    {!submitted && <nav className="mobile-progress" aria-label="Submission progress">{["Centre", "Photo", "Review"].map((label, index) => <span key={label} aria-current={index === stepIndex ? "step" : undefined} className={index < stepIndex ? "complete" : ""}><b>{index < stepIndex ? <Check size={13}/> : `0${index + 1}`}</b>{label}</span>)}</nav>}
+    {nativeNavigation ? <div className="mobile-flow-tools">{progress}{helpAction}</div> : <>
+      <MobileHeader branding={branding} title={submitted ? "Submission details" : "Recycle an item"} back={goBack} action={helpAction}/>
+      {progress}
+    </>}
     <div className="mobile-content" ref={content}>
       {busy && <div className="mobile-working" role="status"><span className="mobile-spinner"/><span>{busy}<small>Keep Circa open while this completes.</small></span></div>}
-      {error && <MobileNotice>{error}</MobileNotice>}
+      {error && !journey.unsupportedItem && !browsingCentres && <MobileNotice>{error}</MobileNotice>}
       {help ? <section className="mobile-help">
         <span className="mobile-eyebrow">A little guidance</span><h1>How can we help?</h1><p>Ask about this submission or request a correction. You’ll review changes before submitting.</p>
         <div className="mobile-messages" aria-live="polite">{journey.messages.map((item, index) => <p key={index} className={item.role}><small>{item.role === "user" ? "You" : "Circa"}</small>{item.text}</p>)}</div>
         <form onSubmit={async event => { event.preventDefault(); const text = message; if (await journey.send(text)) setMessage(""); }}><label>Your question<textarea aria-label="Message Circa assistant" rows={3} maxLength={1500} value={message} onChange={event => setMessage(event.target.value)} disabled={!!busy}/></label><button className="mobile-primary" disabled={!!busy || !message.trim()}>Send message <ArrowRight size={18}/></button></form>
         <button className="mobile-text" onClick={() => setHelp(false)}>Back to your item</button>
-      </section> : <>
+      </section> : browsingCentres ? <MobileCentres experience={experience} host={host} onStart={() => setBrowsingCentres(false)}/> : <>
         {step === "centre" && <>
           <span className="mobile-eyebrow">Step 01 · Your collection point</span>
           <h1>{arrival?.nextAction === "CHOOSE_CENTRE" ? "Choose your centre." : "Good things start nearby."}</h1>
           <p>Bring your electronics to a collection centre. We’ll confirm your arrival before you add a photo.</p>
-          {!arrival && <div className="mobile-location-prompt"><span className="mobile-large-icon"><MapPin size={34}/></span><h2>Find your nearest centre</h2><p>{permission === "denied" ? "Location is blocked. Enable access in your device settings, then try again." : permission === "unavailable" ? "Location isn’t available on this device. Enable location or continue on your phone." : "Your location helps us find nearby centres and confirm you’re at the right place."}</p>{(permission === "denied" || !!error) && host.openLocationSettings && <button className="mobile-text" onClick={host.openLocationSettings}>Open location settings</button>}</div>}
+          <button className="mobile-secondary" disabled={!!busy} onClick={() => setBrowsingCentres(true)}><MapPin size={18}/>Browse collection centres</button>
+          {!arrival && <div className="mobile-location-prompt"><span className="mobile-large-icon"><MapPin size={34}/></span><h2>Find your nearest centre</h2><p>{permission === "denied" ? "Location is blocked. Enable access in your device settings, then try again." : permission === "unavailable" ? "Location isn’t available. Enable access in device settings, or browse collection centres." : "Your location helps us find nearby centres and confirm you’re at the right place."}</p><LocationAccessHelp host={host} permission={permission} hasError={!!error}/></div>}
           {arrival && <div className="mobile-stack">{(arrival.nextAction === "CHOOSE_CENTRE" ? arrival.nearbyCentres : atCentre && centre ? [centre] : arrival.centres).map(item => <CentreCard key={item.code} centre={item} host={host} disabled={!!busy} choose={arrival.nextAction === "CHOOSE_CENTRE" ? async () => { if (await journey.checkLocation(item.code)) setPreviousStep(null); } : undefined}/>)}{arrival.centres.length === 0 && !centre && <p>No collection centres are available right now. Please try again later.</p>}</div>}
         </>}
         {step === "photo" && <>
-          <span className="mobile-eyebrow">Step 02 · A clear picture</span><h1>Let’s meet your item.</h1><p>Photograph one type of item at a time. Keep it fully in view, with enough light to see the details.</p>
+          <span className="mobile-eyebrow">Step 02 · A clear picture</span><h1>Let’s meet your item.</h1><p>Photograph an electronic item or a group of electronics together. Keep everything you want to submit in view, with enough light to see the details.</p>
           {centre && <div className="mobile-location-strip"><MapPin size={16}/><span>{nameOf(centre.name)}</span><CheckCircle2 size={16}/></div>}
-          {!!preview && !ready && !busy && <div className="mobile-card mobile-recognition-recovery"><h2>Let’s check your photo</h2><p>Try identifying this photo again, or replace it with a clearer image. A new item is saved only after analysis succeeds.</p><button className="mobile-secondary" onClick={() => void journey.retryAnalysis()}>Retry image analysis</button></div>}
+          {journey.unsupportedItem && <div className="mobile-card mobile-item-not-accepted" role="alert"><h2>We can’t accept this item</h2><p className="mobile-item-next-step">We currently accept electronics only. Please take a photo of a different electronic item.</p><h3>About your item</h3><p>{error.replace(/^About your item\s*:\s*/, "")}</p></div>}
+          {!!preview && !ready && !busy && !journey.unsupportedItem && <div className="mobile-card mobile-recognition-recovery"><h2>Let’s check your photo</h2><p>Try identifying this photo again, or replace it with a clearer image. A new item is saved only after analysis succeeds.</p><button className="mobile-secondary" onClick={() => void journey.retryAnalysis()}>Retry image analysis</button></div>}
           <div className={`mobile-photo-well ${preview ? "has-photo" : ""}`}>{preview ? <img className="journey-photo" src={preview} alt="Your submitted item"/> : <><Camera size={46} strokeWidth={1.2}/><span>Your item goes here</span><small>A clear photo makes the next step easier.</small></>}</div>
-          <div className="mobile-upload-actions"><label className="mobile-primary"><Camera size={19}/> {preview ? "Retake photo" : "Take photo"}<input aria-label="Take item photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label><label className="mobile-secondary"><ImagePlus size={19}/> {preview ? "Replace image" : "Choose from photos"}<input aria-label="Item photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label></div>
+          <div className="mobile-upload-actions"><label className="mobile-primary"><Camera size={19}/> {journey.unsupportedItem ? "Take another item’s photo" : preview ? "Retake photo" : "Take photo"}<input aria-label="Take item photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label><label className="mobile-secondary"><ImagePlus size={19}/> {preview ? "Replace image" : "Choose from photos"}<input aria-label="Item photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!!busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void selectPhoto(file); }}/></label></div>
           <p className="mobile-caption">JPEG, PNG or WebP · Up to 5 MB<br/>Your photo is kept private with your submission.</p>
         </>}
         {step === "review" && draft && <>
           <span className="mobile-eyebrow">Step 03 · One final look</span><h1>A better next step.</h1><p>Check the suggested details. You’re in control of what gets submitted.</p>
-          <ItemDetailsCard record={draft} image={preview} onEdit={!busy ? beginEdit : undefined}/>
+          <ItemDetailsCard record={draft} image={preview} onEdit={!busy ? beginEdit : undefined} onRefreshImpact={!busy ? journey.refreshImpact : undefined}/>
           <button className="mobile-text" disabled={!!busy} onClick={() => setPreviousStep("photo")}>Replace photo <ChevronRight size={16}/></button>
           <div className="mobile-trust"><ShieldCheck size={18}/><p>Submitting sends this item for review. We’ll check your location once more to confirm arrival.</p></div>
         </>}
@@ -85,12 +96,16 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
         </>}
       </>}
     </div>
-    {!help && <footer className="mobile-action-bar">
+    {!help && browsingCentres && <footer className="mobile-action-bar"><button className="mobile-primary" onClick={() => setBrowsingCentres(false)}>Back to submission <ArrowRight size={18}/></button></footer>}
+    {!help && !browsingCentres && <footer className="mobile-action-bar">
       {step === "centre" && <button className="mobile-primary" disabled={!!busy || permission === "checking"} onClick={async () => { if (await journey.checkLocation(centre?.code)) setPreviousStep(null); }}>{busy || permission === "checking" ? "Checking location…" : !arrival ? permission === "prompt" ? "Share location" : "Check location again" : atCentre ? "Continue to photo" : "I’ve arrived — check location"}<ArrowRight size={18}/></button>}
       {step === "photo" && ready && <button className="mobile-primary" disabled={!!busy} onClick={() => setPreviousStep(null)}>Continue to review <ArrowRight size={18}/></button>}
       {step === "review" && <><button className="mobile-primary" disabled={!!busy} onClick={() => void journey.confirm()}>{busy ? "Please wait…" : "Confirm and submit"}<ArrowRight size={18}/></button><small>Nothing is submitted until you confirm.</small></>}
       {step === "edit" && <><button className="mobile-primary" form="mobile-item-editor" disabled={!!busy}>Save correction <Check size={18}/></button><button className="mobile-text" disabled={!!busy} onClick={goBack}>Cancel editing</button></>}
-      {step === "receipt" && <button className="mobile-primary" onClick={onExit}>View submissions <ArrowRight size={18}/></button>}
+      {step === "receipt" && <>
+        <button className="mobile-primary" disabled={!!busy} onClick={() => { setPreviousStep(null); setEditing(false); journey.startNew(); }}>Submit another item <Plus size={18}/></button>
+        <button className="mobile-text" onClick={onExit}>View submissions <ArrowRight size={18}/></button>
+      </>}
     </footer>}
     <LeaveDialog open={discardOpen} onStay={() => setDiscardOpen(false)} onLeave={() => { setEditing(false); setDiscardOpen(false); }}/>
   </section>;

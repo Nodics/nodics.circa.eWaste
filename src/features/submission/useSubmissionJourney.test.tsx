@@ -192,7 +192,7 @@ it("desktop accuracy recovery uses a fresh capture and keeps the saved draft/pho
     return original(...args);
   });
   const { result } = renderHook(() => useSubmissionJourney({ session, open: true, host, maximumAccuracyMetres: 50, maximumPositionAgeMs: 60000, onSubmitted: vi.fn() }));
-  await waitFor(() => expect(result.current.error).toContain("reopen Circa in Telegram on your phone"));
+  await waitFor(() => expect(result.current.error).toContain("Enable location access for your browser or Telegram"));
   expect(result.current.error).not.toContain("technical detail");
   expect(result.current.arrival).toBeNull();
   expect(result.current.draft?.evidenceRefs).toEqual([{ code: "photo" }]);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Centre } from '../api';
-import { sortCentresByDistance } from './sortCentresByDistance';
+import { formatCentreDistance, sortCentresByDistance } from './sortCentresByDistance';
 
 const centre = (code: string, latitude?: number, longitude?: number): Centre => ({ code, name: { en: code }, latitude, longitude });
 
@@ -22,5 +22,10 @@ describe('Collection centre distance order', () => {
   it('uses geographic distance across the international date line', () => {
     const records = [centre('far', 0, 170), centre('near', 0, -179.9)];
     expect(sortCentresByDistance(records, { latitude: 0, longitude: 179.9 }).map(c => c.code)).toEqual(['near', 'far']);
+  });
+  it('labels displayed distance as direct rather than route distance', () => {
+    expect(formatCentreDistance(940)).toBe('940 m direct');
+    expect(formatCentreDistance(8930)).toBe('8.9 km direct');
+    expect(formatCentreDistance(null)).toBeNull();
   });
 });

@@ -26,3 +26,8 @@
 
 .environment-history-pages { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
 .environment-method, .environment-details { overflow-wrap: anywhere; }
+
+.environment-benefits { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:18px 0; }
+.environment-benefits > div { padding:14px; background:#fff8; border-radius:10px; }
+.environment-benefits dt { font-size:12px; line-height:1.5; }
+.environment-benefits dd { margin:8px 0 0; font-size:20px; }

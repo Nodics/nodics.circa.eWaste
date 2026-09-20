@@ -1039,23 +1039,41 @@
   }
 }
 .waste-mobile .waste-banner {
-  min-height: 205px;
+  min-height: 0;
 }
 .waste-mobile .waste-banner-copy {
-  padding: 25px 20px;
-  max-width: 95%;
+  padding: 18px 16px;
+  max-width: 100%;
 }
 .waste-mobile .waste-banner h1 {
-  font-size: 32px;
+  font-size: 24px;
+  margin: 0;
 }
+.waste-mobile .waste-banner .waste-eyebrow,
 .waste-mobile .waste-banner p {
-  font-size: 12px;
+  display: none;
 }
 .waste-mobile .waste-collection-tabs {
-  margin: 16px 0;
+  margin: 12px 0;
 }
 .waste-mobile .waste-collection-tabs button {
   font-size: 14px;
+  padding: 12px 0;
+}
+.waste-mobile .listing-sort {
+  flex: 1;
+  min-width: 0;
+}
+.waste-mobile .listing-sort select {
+  width: 100%;
+  max-width: 100%;
+}
+.waste-mobile .waste-status-filters {
+  margin-top: 12px;
+}
+.waste-mobile .waste-results-heading {
+  margin: 12px 0;
+  gap: 8px;
 }
 .waste-mobile .waste-detail > .waste-breadcrumb {
   margin-top: 6px;

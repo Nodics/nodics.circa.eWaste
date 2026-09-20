@@ -1034,10 +1034,11 @@ footer > .footer-bottom {
   color: white;
   border: 1px solid #559b61;
   box-shadow: 0 5px 22px #173d2940;
-  border-radius: 28px;
+  border-radius: 14px;
   padding: 15px 19px;
-  font-size: 12px;
-  font-weight: 550;
+  min-height: 52px;
+  font-size: 15px;
+  font-weight: 650;
 }
 .launcher-dot {
   width: 6px;
@@ -2282,7 +2283,7 @@ dd {
     right: 16px;
     bottom: max(17px, env(safe-area-inset-bottom));
     padding: 13px 17px;
-    font-size: 11px;
+    font-size: 14px;
   }
   .assistant-panel {
     inset: 0;
@@ -2996,6 +2997,22 @@ form.assistant-composer > button:disabled {
 .assistant-header > button:focus-visible {
   outline: 2px solid currentColor;
 }
+.assistant-header > .assistant-minimize {
+  margin-left: auto;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: #ffffff14;
+  border: 1px solid #ffffff40;
+}
+.assistant-header > .assistant-minimize:hover {
+  background: #ffffff26;
+}
+.assistant-header > .assistant-minimize:focus-visible {
+  outline-offset: 3px;
+}
 
 .customer-authentication > p {
   font-size: 13px;
@@ -3088,3 +3105,9 @@ form.assistant-composer > button:disabled {
 .screen-recovery h1 {
   font-size: 26px;
 }
+
+.location-access-help { margin-top: 12px; }
+.location-access-help > button { display: block; margin: 8px auto; }
+.location-access-instructions { margin-top: 12px; padding: 12px 14px; border: 1px solid #dfe5d7; border-radius: 12px; text-align: left; }
+.location-access-instructions p { font-size: 13px; line-height: 1.6; margin: 0 0 10px; }
+.location-access-instructions p:last-child { margin-bottom: 0; }

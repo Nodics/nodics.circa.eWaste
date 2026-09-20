@@ -15,6 +15,7 @@ import {
   LogOut,
   MapPin,
   Plus,
+  Recycle,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -175,21 +176,25 @@ export function MobileApp({
     if (!updatesOpen && !flow && tab !== "home" && tab !== "submissions")
       return host.bindBack?.(accountSection && session ? backToAccount : home);
   }, [host, flow, tab, home, updatesOpen, accountSection, session, backToAccount]);
+  const beginSubmission = (customer: Session) => {
+    // Start a separate item; saved drafts remain available in Items > Drafts.
+    sessionStorage.removeItem(`circa.draft.${customer.loginId}.create`);
+    setInitialTarget(undefined);
+    setFlow({});
+  };
   const start = () => {
     if (!session) {
       setSignInToSubmit(true);
       setTab("account");
       return;
     }
-    sessionStorage.removeItem(`circa.draft.${session.loginId}`);
-    sessionStorage.removeItem(`circa.draft.${session.loginId}.create`);
-    setFlow({});
+    beginSubmission(session);
   };
   const leaveFlow = useCallback(() => {
     setFlow(null);
-    setTab("submissions");
+    navigateAccount("items");
     refresh();
-  }, [refresh]);
+  }, [navigateAccount, refresh]);
   const items = account?.submissions || [];
   const saved = items.find(isDraft);
 
@@ -386,6 +391,7 @@ export function MobileApp({
             {!session && <span className="mobile-eyebrow">Your space in Circa</span>}
             {!session ? (
               <>
+                {signInToSubmit && <p className="mobile-submission-intent" role="status">Sign in to submit your eWaste. We’ll continue with your item next.</p>}
                 <div className="mobile-account-art">
                   <UserRound size={32} />
                 </div>
@@ -394,7 +400,7 @@ export function MobileApp({
                   onLogin={async (value) => {
                     await onLogin(value);
                     if (signInToSubmit) {
-                      setFlow({});
+                      beginSubmission(value);
                       setSignInToSubmit(false);
                     } else
                       setTab(
@@ -448,6 +454,15 @@ export function MobileApp({
         )}
         <MobileSiteFooter content={branding} onHome={home} />
       </div>
+      {!(signInToSubmit && !session) && (
+        <div className="mobile-submit-bar" role="region" aria-label="Recycling actions">
+          <button className="mobile-primary" onClick={start}>
+            <Recycle size={22} aria-hidden="true" />
+            <span>Submit eWaste</span>
+            <ArrowRight size={19} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       <nav className="mobile-tabs" aria-label="Main navigation">
         {tabs.map(({ code, label, icon: Icon }) => (
           <button

@@ -1,0 +1,54 @@
+{
+  "name": "nodics-circa-local",
+  "services": {
+    "circa": {
+      "image": "nodics/circa:docker-local",
+      "build": {
+        "context": "..",
+        "dockerfile": "docker/Dockerfile",
+        "args": {
+          "STOREFRONT_ORIGIN": "http://localhost:6600",
+          "STOREFRONT_SITE": "circaSite",
+          "STOREFRONT_STORE": "circaMainStore",
+          "STOREFRONT_DOMAIN": "circa",
+          "STOREFRONT_CURRENCY": "POINTS"
+        }
+      },
+      "restart": "unless-stopped",
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/var/cache/nginx:rw,noexec,nosuid,size=32m,uid=101,gid=101",
+        "/var/run:rw,noexec,nosuid,size=8m,uid=101,gid=101"
+      ],
+      "ports": [
+        "6600:8080"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1:8080/"
+        ],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10
+      },
+      "deploy": {
+        "resources": {
+          "limits": {
+            "memory": "128m",
+            "cpus": "0.50"
+          }
+        }
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ]
+    }
+  }
+}

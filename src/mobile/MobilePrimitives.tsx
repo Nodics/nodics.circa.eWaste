@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { nameOf, type Centre } from "../api";
 import type { JourneyHost } from "../channels/journeyHost";
+import { formatCentreDistance } from "../map/sortCentresByDistance";
 
 export function MobileHeader({ title, back, action, branding, scrolled = false, onHome }: { title: string; back?: () => void; action?: ReactNode; branding?: Content; scrolled?: boolean; onHome?: () => void }) {
   return <header className={`mobile-header ${back ? 'mobile-header-journey' : ''} ${scrolled ? 'is-scrolled' : ''}`}>
@@ -39,7 +40,7 @@ export function CentreCard({ centre, host, choose, disabled }: { centre: Centre;
     {centre.metadata?.hours && <p className="mobile-centre-hours">{centre.metadata.hours}</p>}
     {centre.acceptanceSummary && <p>{nameOf(centre.acceptanceSummary)}</p>}
     <div className="mobile-row mobile-between">
-      <small>{centre.distanceMetres !== undefined ? centre.distanceMetres < 1000 ? `${Math.round(centre.distanceMetres)} m away` : `${(centre.distanceMetres / 1000).toFixed(1)} km away` : "Collection centre"}</small>
+      <small>{formatCentreDistance(centre.distanceMetres ?? null) || "Collection centre"}</small>
       {located && <button className="mobile-text" aria-label={`Directions to ${nameOf(centre.name)}`} onClick={() => host.openMap(`https://www.google.com/maps/dir/?api=1&destination=${position.latitude},${position.longitude}`)}>Directions <ArrowUpRight size={16}/></button>}
     </div>
     {choose && <button className="mobile-primary" disabled={disabled} onClick={choose}>Use this centre</button>}

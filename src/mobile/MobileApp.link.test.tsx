@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { MobileApp } from "./MobileApp";
@@ -18,13 +18,16 @@ vi.mock("../features/waste/CustomerWasteWorkspace", () => ({
   CustomerWasteWorkspace: ({
     initialSelection,
     onNavigate,
+    onContinue,
   }: {
     initialSelection?: { code: string };
     onNavigate: () => void;
+    onContinue: (code: string) => void;
   }) => (
     <div>
       {initialSelection && `Requested item: ${initialSelection.code}`}
       <button onClick={onNavigate}>Back to submissions</button>
+      <button onClick={() => onContinue("SAVED_DRAFT")}>Continue saved draft</button>
     </div>
   ),
 }));
@@ -37,7 +40,7 @@ vi.mock("./MobileSubmissionJourney", () => ({
     onExit: () => void;
   }) => (
     <div>
-      Requested item: {code}
+      {code ? `Requested item: ${code}` : "New item journey"}
       <button onClick={onExit}>Back to submissions</button>
     </div>
   ),
@@ -49,7 +52,7 @@ vi.mock("../CustomerAuthentication", () => ({
     </button>
   ),
 }));
-afterEach(() => { cleanup(); history.replaceState({}, "", "/"); });
+afterEach(() => { cleanup(); history.replaceState({}, "", "/"); sessionStorage.clear(); });
 const experience = { presentation: { sampleMode: true } } as Experience,
   host: JourneyHost = {
     kind: "telegram",
@@ -132,4 +135,46 @@ it("retains a separate account destination through sign-in and returns to the ac
   expect(location.search).toContain("view=submissions");
   expect(location.search).not.toContain("account=");
   expect(screen.getByRole("button", {name:"Items", current:"page"})).toBeInTheDocument();
+});
+
+it.each(["web", "telegram"] as const)("keeps submission reachable from every main %s tab and account detail", async kind => {
+  history.replaceState({}, "", kind === "telegram" ? "/telegram" : "/mobile");
+  const user = userEvent.setup();
+  render(<MobileApp session={{loginId:"customer",token:"token"}} experience={experience} host={{...host,kind}} onLogin={() => {}} onLogout={() => {}}/>);
+  for (const name of ["Home", "Centres", "Items", "Account"]) {
+    await user.click(within(screen.getByRole("navigation", {name:"Main navigation"})).getByRole("button", {name}));
+    expect(within(screen.getByRole("region", {name:"Recycling actions"})).getByRole("button", {name:"Submit eWaste"})).toBeEnabled();
+  }
+  await user.click(screen.getByRole("link", {name:"Wallet"}));
+  await screen.findByRole("heading", {name:"Your wallet"});
+  await user.click(within(screen.getByRole("region", {name:"Recycling actions"})).getByRole("button", {name:"Submit eWaste"}));
+  expect(screen.getByText("New item journey")).toBeInTheDocument();
+  expect(screen.queryByRole("region", {name:"Recycling actions"})).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name:"Back to submissions"}));
+  expect(location.search).toContain("view=submissions");
+  expect(location.search).not.toContain("account=");
+  expect(screen.getByRole("button", {name:"Items",current:"page"})).toBeInTheDocument();
+});
+
+it("continues a submission after sign-in while preserving the Telegram launch and saved draft", async () => {
+  history.replaceState({}, "", "/telegram?account=wallet&tgWebAppStartParam=launch-context");
+  sessionStorage.setItem("circa.draft.customer", "SAVED_DRAFT");
+  sessionStorage.setItem("circa.draft.customer.create", "previous-command");
+  function Harness() {
+    const [session, setSession] = useState<Session | null>(null);
+    return <MobileApp session={session} experience={experience} host={host} onLogin={setSession} onLogout={() => setSession(null)}/>;
+  }
+  const user = userEvent.setup();
+  render(<Harness/>);
+  await user.click(screen.getByRole("button", {name:"Submit eWaste"}));
+  expect(screen.getByRole("status")).toHaveTextContent("Sign in to submit your eWaste");
+  expect(screen.queryByText("New item journey")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name:"Sign in for this item"}));
+  expect(screen.getByText("New item journey")).toBeInTheDocument();
+  expect(sessionStorage.getItem("circa.draft.customer")).toBe("SAVED_DRAFT");
+  expect(sessionStorage.getItem("circa.draft.customer.create")).toBeNull();
+  await user.click(screen.getByRole("button", {name:"Back to submissions"}));
+  expect(location.search).toContain("tgWebAppStartParam=launch-context");
+  await user.click(screen.getByRole("button", {name:"Continue saved draft"}));
+  expect(screen.getByText("Requested item: SAVED_DRAFT")).toBeInTheDocument();
 });

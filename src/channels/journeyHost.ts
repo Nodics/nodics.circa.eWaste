@@ -18,6 +18,8 @@ export type LocationRequirements = {
 };
 export interface JourneyHost {
   kind: "web" | "telegram";
+  /** Presentation hint from the host SDK; never used for arrival validation. */
+  platform?: string;
   permission(): Promise<LocationPermission>;
   capture(signal: AbortSignal, timeoutMs: number, requirements?: LocationRequirements): Promise<Position>;
   openMap(url: string): void;
@@ -27,6 +29,7 @@ export interface JourneyHost {
 }
 export interface TelegramApp {
   initData: string;
+  platform?: string;
   ready(): void;
   expand(): void;
   isVersionAtLeast?(version: string): boolean;
@@ -109,6 +112,46 @@ function bounded<T>(
     }
   });
 }
+/** Waits for a fresh, improved device reading within the existing capture budget.
+ * The best observed accuracy is preserved on timeout for the server to assess.
+ */
+function refinedBrowserPosition(signal: AbortSignal, timeoutMs: number, requirements: LocationRequirements): Promise<Position> {
+  return new Promise((resolve, reject) => {
+    const geolocation = navigator.geolocation;
+    let watch: number | undefined, best: Position | undefined, done = false;
+    const finish = (error?: Error) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      if (watch !== undefined) geolocation.clearWatch(watch);
+      if (error) reject(error);
+      else if (best) resolve(best);
+      else reject(new Error("Your location is unavailable. Check device location and retry."));
+    };
+    const abort = () => finish(new DOMException("Location check cancelled", "AbortError"));
+    const timer = setTimeout(() => finish(), timeoutMs);
+    if (signal.aborted) { abort(); return; }
+    signal.addEventListener("abort", abort, { once: true });
+    const fresh = (p: Position) => Number.isFinite(p.capturedAt) && Date.now() - p.capturedAt <= (requirements.maximumPositionAgeMs ?? timeoutMs);
+    const accuracy = (p: Position) => typeof p.accuracy === "number" && Number.isFinite(p.accuracy) && p.accuracy >= 0 ? p.accuracy : Infinity;
+    try {
+      watch = geolocation.watchPosition(value => {
+        if (done) return;
+        const observed: Position = { latitude: value.coords.latitude, longitude: value.coords.longitude, accuracy: value.coords.accuracy, capturedAt: value.timestamp };
+        if (!best || (fresh(observed) && !fresh(best)) || (fresh(observed) === fresh(best) && accuracy(observed) <= accuracy(best))) best = observed;
+        if (fresh(observed) && accuracy(observed) <= requirements.maximumAccuracyMetres!) finish();
+      }, error => {
+        if (error.code === 1) finish(new Error("Location access is blocked. Enable it in your browser settings, then retry."));
+        // A temporary unavailable/timeout notification can be followed by a fix.
+      }, { maximumAge: 0, enableHighAccuracy: true, timeout: timeoutMs });
+      // Handles synchronous host adapters as well as the browser's async callback.
+      if (done) geolocation.clearWatch(watch);
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error("Your location is unavailable."));
+    }
+  });
+}
 export const webJourneyHost: JourneyHost = {
   kind: "web",
   async permission() {
@@ -121,7 +164,9 @@ export const webJourneyHost: JourneyHost = {
       return "unknown";
     }
   },
-  capture(signal, timeoutMs) {
+  capture(signal, timeoutMs, requirements) {
+    if (requirements?.maximumAccuracyMetres !== undefined && typeof navigator.geolocation?.watchPosition === "function")
+      return refinedBrowserPosition(signal, timeoutMs, requirements);
     return bounded(signal, timeoutMs, (resolve, reject) =>
       navigator.geolocation.getCurrentPosition(
         (value) =>
@@ -151,6 +196,7 @@ export const webJourneyHost: JourneyHost = {
 };
 /** Uses Telegram native access state when supported; older clients retain browser capture. */
 export function telegramJourneyHost(app: TelegramApp): JourneyHost {
+  const back = !app.isVersionAtLeast || app.isVersionAtLeast("6.1") ? app.BackButton : undefined;
   const manager =
     !app.isVersionAtLeast || app.isVersionAtLeast("8.0")
       ? app.LocationManager
@@ -158,12 +204,12 @@ export function telegramJourneyHost(app: TelegramApp): JourneyHost {
   return {
     ...webJourneyHost,
     kind: "telegram",
-    bindBack(handler) {
-      const back = !app.isVersionAtLeast || app.isVersionAtLeast("6.1") ? app.BackButton : undefined;
-      back?.onClick(handler);
-      back?.show();
-      return () => { back?.offClick(handler); back?.hide(); };
-    },
+    platform: app.platform,
+    bindBack: back ? handler => {
+      back.onClick(handler);
+      back.show();
+      return () => { back.offClick(handler); back.hide(); };
+    } : undefined,
     async permission() {
       if (!manager) return webJourneyHost.permission();
       if (!manager.isInited)
@@ -201,10 +247,10 @@ export function telegramJourneyHost(app: TelegramApp): JourneyHost {
               ),
         ),
       );
-      // Desktop Telegram can supply coordinates without horizontal accuracy.
-      // Try the browser's real reading; never fabricate accuracy or retry a denied native grant.
+      // Only request an accuracy refinement when the backend supplies that policy.
+      // Distance-based arrival and map browsing can use native coordinates directly.
       const knownAccuracy = (p: Position) => typeof p.accuracy === "number" && Number.isFinite(p.accuracy) && p.accuracy >= 0;
-      const needsFallback = !knownAccuracy(native) || (requirements?.maximumAccuracyMetres !== undefined && native.accuracy! > requirements.maximumAccuracyMetres);
+      const needsFallback = requirements?.maximumAccuracyMetres !== undefined && (!knownAccuracy(native) || native.accuracy! > requirements.maximumAccuracyMetres);
       if (!needsFallback || !navigator.geolocation || remaining() <= 1) return native;
       try {
         const browser = await webJourneyHost.capture(signal, remaining(), requirements);

@@ -57,6 +57,8 @@
   background: white;
 }
 .listing-search input {
+  -webkit-appearance: none;
+  appearance: none;
   margin: 0;
   background: none;
   border: 0;
@@ -66,6 +68,9 @@
   padding: 12px 0;
   font-size: 13px;
   color: #253a2a;
+}
+.listing-search > svg {
+  flex-shrink: 0;
 }
 .listing-search:focus-within {
   outline: 2px solid #588755;
@@ -211,13 +216,18 @@
 }
 
 .mobile-app .listing-search input {
+  flex: 1;
+  width: 0;
   min-height: 0;
   height: 42px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: 16px;
+}
+.mobile-app .listing-search input:focus-visible {
+  outline: none;
 }
 .mobile-app .listing-sort select {
   margin: 0;
