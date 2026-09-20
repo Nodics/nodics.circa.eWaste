@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ApiError, request } from "../../api";
+import { ApiError, request, type Submission } from "../../api";
 import { useSubmissionJourney } from "./useSubmissionJourney";
 import type { JourneyHost } from "../../channels/journeyHost";
 vi.mock("../../api", async (original) => ({ ...(await original<typeof import("../../api")>()), request: vi.fn() }));
@@ -40,6 +40,25 @@ it("keeps a failed photo temporary and exposes no saved draft", async () => {
   expect(sessionStorage.getItem("circa.draft." + session.loginId)).toBeNull();
   expect(vi.mocked(request).mock.calls.every(([path]) => path.endsWith("/journey/arrival") || path.endsWith("/submissions/prepare"))).toBe(true);
 });
+
+it("uses a fresh preparation reference when replacing an unsaved failed photo", async () => {
+  vi.mocked(request).mockImplementation(async path => {
+    if (path.endsWith("/journey/arrival")) return arrival;
+    throw new ApiError("This photo is unclear", "ERR_WASTE_RECOGNITION_INVALID");
+  });
+  const { result } = show();
+  await waitFor(() => expect(result.current.busy).toBe(""));
+  await act(async () => { await result.current.upload(new File(["photo-a"], "item-a.png", { type: "image/png" })); });
+  await act(async () => { await result.current.upload(new File(["photo-b"], "item-b.png", { type: "image/png" })); });
+  const prepareBodies = vi.mocked(request).mock.calls
+    .filter(([path]) => path.endsWith("/submissions/prepare"))
+    .map(([, , body]) => body as { idempotencyKey: string });
+  expect(prepareBodies).toHaveLength(2);
+  expect(prepareBodies[1].idempotencyKey).not.toBe(prepareBodies[0].idempotencyKey);
+  expect(result.current.draft).toBeNull();
+  expect(sessionStorage.getItem("circa.draft." + session.loginId)).toBeNull();
+});
+
 it("persists only the successful preparation response for resume", async () => {
   vi.mocked(request).mockImplementation(async path => path.endsWith("/journey/arrival") ? arrival : {
     code: "prepared", revision: 1, submissionStatus: "METADATA_SUGGESTED", evidenceRefs: [{ code: "evidence" }],
@@ -105,5 +124,30 @@ it("refreshes an existing estimate at the latest revision without uploading or c
  await act(async()=>{await result.current.refreshImpact();});
  expect(vi.mocked(request).mock.calls.map(c=>c[0])).toEqual(["/nodics/eWaste/v0/submissions/charger","/nodics/eWaste/v0/submissions/charger/estimate"]);
  expect(vi.mocked(request).mock.calls[1][2]).toMatchObject({expectedRevision:2});
+ expect(result.current.ready).toBe(true);
+});
+
+it("flags an impact estimate failure as impact recovery and retries the saved draft estimate", async () => {
+ let draft: Submission={code:"bundle",revision:4,submissionStatus:"METADATA_SUGGESTED",submittedFacts:{name:"Cable bundle",itemTypeCode:"UNKNOWN_ELECTRONIC_ITEM"},metadata:{suggestion:{facts:{name:"Cable bundle"},advisory:true,confidence:"0.9"},photo:{code:"P"}},evidenceRefs:[{code:"E"}]};
+ let estimateAttempts=0;
+ vi.mocked(request).mockImplementation(async path => {
+   if (path.endsWith("/journey/arrival")) return arrival;
+   if (path.endsWith("/submissions/bundle/estimate")) {
+     estimateAttempts++;
+     if (estimateAttempts === 1) throw new ApiError("Update the environmental impact assessment before submitting. Your photo and details are saved.", "ERR_WASTE_IMPACT_INPUT_INVALID");
+     draft={...draft,revision:5,metadata:{...draft.metadata,estimate:{code:"impact"}}};
+     return draft;
+   }
+   if (path.endsWith("/submissions/bundle")) return draft;
+   throw new Error("Unexpected request " + path);
+ });
+ sessionStorage.setItem("circa.draft." + session.loginId, "bundle");
+ const {result}=show();
+ await waitFor(()=>expect(result.current.draft?.code).toBe("bundle"));
+ await act(async()=>{await result.current.refreshImpact();});
+ expect(result.current.impactRecovery).toBe(true);
+ await act(async()=>{await result.current.refreshImpact();});
+ expect(estimateAttempts).toBe(2);
+ expect(result.current.impactRecovery).toBe(false);
  expect(result.current.ready).toBe(true);
 });

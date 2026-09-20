@@ -285,7 +285,9 @@ export function SubmissionAssistant({
                     </div>
                     {!ready && (
                       <h3>
-                        {preview
+                        {journey.impactRecovery
+                          ? "Update your impact estimate"
+                          : preview
                           ? "Let’s check your photo"
                           : "Take a photo. We’ll identify your item."}
                       </h3>
@@ -294,9 +296,15 @@ export function SubmissionAssistant({
                       <div>
                         <button
                           className="secondary full"
-                          onClick={() => void journey.retryAnalysis()}
+                          onClick={() =>
+                            void (journey.impactRecovery && draft
+                              ? journey.refreshImpact()
+                              : journey.retryAnalysis())
+                          }
                         >
-                          Retry image analysis
+                          {journey.impactRecovery
+                            ? "Retry impact estimate"
+                            : "Retry image analysis"}
                         </button>
                         {draft?.metadata.suggestion && <button className="text-button" onClick={showEditor}>
                           Enter essential details

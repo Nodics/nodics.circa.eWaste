@@ -63,6 +63,7 @@ export function useSubmissionJourney({
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [unsupportedItem, setUnsupportedItem] = useState(false),
+    [impactRecovery, setImpactRecovery] = useState(false),
     [preview, setPreview] = useState(""),
     [messages, setMessages] = useState<Message[]>([]),
     [ready, setReady] = useState(false);
@@ -97,6 +98,7 @@ export function useSubmissionJourney({
     setBusy(label);
     setError("");
     setUnsupportedItem(false);
+    setImpactRecovery(false);
     const epoch = generation.current;
     const active = () => epoch === generation.current;
     try {
@@ -105,6 +107,7 @@ export function useSubmissionJourney({
     } catch (e) {
       if (active() && !(e instanceof DOMException && e.name === "AbortError")) {
         setUnsupportedItem(e instanceof ApiError && e.code === "ERR_WASTE_ITEM_UNSUPPORTED");
+        setImpactRecovery(e instanceof ApiError && e.code === "ERR_WASTE_IMPACT_INPUT_INVALID");
         const locationMessages: Record<string, string> = {
           ERR_CIRCA_POSITION_INVALID: "We couldn’t get a usable location. Check location again. Your progress is saved.",
           ERR_CIRCA_POSITION_STALE: "Your location reading has expired. Check location again to continue. Your progress is saved.",
@@ -334,7 +337,7 @@ export function useSubmissionJourney({
         true,
       );
       if (!active()) return;
-      if (pendingPhoto.current !== file && d) createKey.current = commandKey();
+      if (pendingPhoto.current !== file) createKey.current = commandKey();
       pendingPhoto.current = file;
       setPreview(URL.createObjectURL(file));
       setReady(false);
@@ -393,10 +396,11 @@ export function useSubmissionJourney({
         { expectedRevision: d.revision, idempotencyKey: commandKey() },
         "POST", { timeoutMs: 150000 },
       );
-      if (active()) {
-        apply(d);
-        setReady(true);
-      }
+        if (active()) {
+          apply(d);
+          setReady(true);
+          setImpactRecovery(false);
+        }
     });
   }
   function send(text: string) {
@@ -452,6 +456,7 @@ export function useSubmissionJourney({
         if (active()) {
           apply(prepared);
           setReady(true);
+          setImpactRecovery(false);
         }
       }
     });
@@ -468,7 +473,7 @@ export function useSubmissionJourney({
       const updated = await request<Submission>(`${API}/submissions/${d.code}/estimate`, session, {
         expectedRevision: latest.revision, idempotencyKey: commandKey(),
       }, "POST", { timeoutMs: 150000 });
-      if (active()) { apply(updated); setReady(true); }
+      if (active()) { apply(updated); setReady(true); setImpactRecovery(false); }
     });
   }
   function confirm() {
@@ -525,6 +530,7 @@ export function useSubmissionJourney({
     setMessages([]);
     setError("");
     setUnsupportedItem(false);
+    setImpactRecovery(false);
     sessionStorage.removeItem(storage);
     createKey.current = commandKey();
     sessionStorage.setItem(storage + ".create", createKey.current);
@@ -538,6 +544,7 @@ export function useSubmissionJourney({
     busy,
     error,
     unsupportedItem,
+    impactRecovery,
     preview,
     messages,
     ready,
