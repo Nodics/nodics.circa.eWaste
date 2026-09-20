@@ -258,6 +258,20 @@ export type Asset = {
     facts: Facts;
     photo?: { code?: string; url?: string };
     openingReward?: number;
+    confirmedReward?: {
+      rewardTypeCode: string;
+      rewardAmount: string;
+    };
+    rewardSettlement?: {
+      assessmentCode: string;
+      walletCode?: string;
+      ledgerEntryCode?: string;
+      rewardTypeCode: string;
+      rewardAmount: string;
+      policyCode: string;
+      policyVersion: number;
+      settledAt: string;
+    };
     valuation?: {
       pointsRewardTypeCode: string;
       rewards: { rewardTypeCode: string; amount: string }[];
@@ -538,8 +552,12 @@ export function statusLabel(status: string): string {
 }
 
 export function originalRewardOf(asset: Asset): string | number {
+  const settlement = asset.metadata.rewardSettlement;
+  const confirmed = asset.metadata.confirmedReward;
   const valuation = asset.metadata.valuation;
   return (
+    settlement?.rewardAmount ??
+    confirmed?.rewardAmount ??
     valuation?.rewards.find(
       (reward) => reward.rewardTypeCode === valuation.pointsRewardTypeCode,
     )?.amount ??
