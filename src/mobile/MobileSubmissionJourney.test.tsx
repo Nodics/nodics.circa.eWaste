@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   journey = {
     draft: { code: 'saved-draft', revision: 1, submissionStatus: 'DRAFT', submittedFacts: {}, evidenceRefs: [], metadata: {} },
-    arrival: null, permission: 'granted', busy: '', error: '', unsupportedItem: false, preview: '', messages: [], ready: false, submitted: false,
+    arrival: null, permission: 'granted', busy: '', error: '', unsupportedItem: false, impactRecovery: false, preview: '', messages: [], ready: false, submitted: false,
     checkLocation: vi.fn(), upload: vi.fn(), retryAnalysis: vi.fn(), refreshImpact: vi.fn(), edit: vi.fn(), send: vi.fn(), confirm: vi.fn(), startNew: vi.fn(),
   };
   host = { kind: 'telegram', permission: vi.fn(), capture: vi.fn(), openMap: vi.fn(), setClosingConfirmation: vi.fn(), bindBack: handler => { nativeBack = handler; return vi.fn(); } };

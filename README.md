@@ -259,6 +259,12 @@ or unauthorized source items use a generic update without exposing item details.
 
 Impact assessments preserve provider/dataset provenance and previous results. Axis uses the backend-authorized assessment endpoints with explicit reasons, confirmation and exact asset revisions. Customer asset details show the accepted environmental assessment and paginated read-only history. CO₂e-to-tonnes conversion is carbon equivalent, not credit issuance; existing reward balances remain separate.
 
+Approval rewards displayed for owned assets come from backend-confirmed Rules
+assessment evidence and Loyalty settlement. The customer application does not
+calculate scores, choose a policy, or infer a reward from environmental metrics.
+During a rolling upgrade it may read legacy valuation fields only as a fallback;
+confirmed and settled reward evidence takes precedence.
+
 Purchase review refreshes the customer wallet before displaying the remaining balance. A failed refresh leaves confirmation unavailable; the backend still authorizes and settles the confirmed transaction.
 
 The browser adapter supports bounded accuracy refinement when explicitly requested
