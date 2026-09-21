@@ -5,6 +5,7 @@ import { MobileApp } from "../mobile/MobileApp";
 import { MobileNotice } from "../mobile/MobilePrimitives";
 import {
   APP_API,
+  ApiError,
   request,
   saveSession,
   setTelegramLaunch,
@@ -13,6 +14,30 @@ import {
 } from "../api";
 import { telegramJourneyHost, type JourneyHost } from "./journeyHost";
 import { enterChannel, linkChannel } from "./channelAuthentication";
+
+type TelegramBootIssue = {
+  title: string;
+  message: string;
+  retryable: boolean;
+};
+
+function telegramBootIssue(error: unknown): TelegramBootIssue {
+  const message = error instanceof Error ? error.message : "Please reopen Circa.";
+  const code = error instanceof ApiError ? error.code : undefined;
+  if (
+    code === "TELEGRAM_CONFIGURATION_REQUIRED" ||
+    code === "UNCONFIGURED" ||
+    /TELEGRAM_CONFIGURATION_REQUIRED|UNCONFIGURED/i.test(message)
+  ) {
+    return {
+      title: "Configuration required.",
+      message:
+        "Circa is available, but Telegram access is not configured for this environment yet.",
+      retryable: false,
+    };
+  }
+  return { title: "Let’s reconnect.", message, retryable: true };
+}
 
 /** Loads the official host SDK only for the Telegram entry route. */
 function loadTelegram(): Promise<void> {
@@ -53,11 +78,11 @@ export function TelegramShell() {
   const [host, setHost] = useState<JourneyHost | null>(null),
     [session, setSession] = useState<Session | null>(null),
     [experience, setExperience] = useState<Experience | null>(null),
-    [error, setError] = useState("");
+    [issue, setIssue] = useState<TelegramBootIssue | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    setError("");
+    setIssue(null);
     void (async () => {
       await loadTelegram();
       const app = window.Telegram?.WebApp;
@@ -75,25 +100,35 @@ export function TelegramShell() {
       const data = await request<Experience>(`${APP_API}/experience`);
       if (active) setExperience(data);
     })().catch((e) => {
-      if (active)
-        setError(e instanceof Error ? e.message : "Please reopen Circa.");
+      if (active) setIssue(telegramBootIssue(e));
     });
     return () => {
       active = false;
       setTelegramLaunch(null);
     };
   }, [attempt]);
-  if (error)
+  if (issue)
     return (
       <main className="mobile-boot">
-        <h1>Let’s reconnect.</h1>
-        <MobileNotice retry={() => setAttempt((value) => value + 1)}>
-          {error}
+        <h1>{issue.title}</h1>
+        <MobileNotice
+          retry={
+            issue.retryable ? () => setAttempt((value) => value + 1) : undefined
+          }
+        >
+          {issue.message}
         </MobileNotice>
-        <p>
-          Close Circa and reopen it from the bot if Telegram needs a fresh
-          launch. Your saved submissions remain in your account.
-        </p>
+        {issue.retryable ? (
+          <p>
+            Close Circa and reopen it from the bot if Telegram needs a fresh
+            launch. Your saved submissions remain in your account.
+          </p>
+        ) : (
+          <p>
+            Ask an administrator to update Runtime Configuration in Axis, then
+            reopen Circa from the bot.
+          </p>
+        )}
       </main>
     );
   if (!host || !experience) return <MobileLaunchScreen/>;
