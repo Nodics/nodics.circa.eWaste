@@ -1,6 +1,11 @@
 name: Circa eWaste Verification
 
 on:
+  push:
+    branches:
+      - development
+      - master
+  workflow_dispatch:
   pull_request:
     branches:
       - development

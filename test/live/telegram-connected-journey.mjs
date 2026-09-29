@@ -17,7 +17,10 @@ const email = `telegram.qa.${Date.now()}@circa.local`, password = 'CircaDemo!202
 const subject = 4000000000000000 + Date.now() % 1000000000;
 const unwrap = value => { for(let i=0;i<6&&value;i++){if(value.data!==undefined)value=value.data;else if(value.result!==undefined)value=value.result;else break;}return value; };
 const experience = unwrap(await (await fetch(base+'/nodics/circa.ewaste/v0/experience')).json());
-const centre = experience.centres.find(value => value.code === 'cc-dxb-01');
+const configuredCentreCode = process.env.CIRCA_COLLECTION_CENTRE;
+const centre = configuredCentreCode
+ ? experience.centres.find(value => value.code === configuredCentreCode)
+ : experience.centres.find(value => value?.location);
 if (!centre?.location) throw Error('Located local collection-centre fixture is unavailable.');
 const point = { latitude: centre.location.latitude, longitude: centre.location.longitude, horizontal_accuracy: 5 };
 function proof() {
