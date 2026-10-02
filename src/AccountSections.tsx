@@ -1,3 +1,4 @@
+/** Shared customer account navigation; optional self-contact presentation never grants Profile authority. */
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -8,6 +9,7 @@ import {
   ShoppingBag,
   LayoutDashboard,
   Wallet as WalletIcon,
+  Settings,
 } from "lucide-react";
 import {
   API,
@@ -22,6 +24,8 @@ import { BidHistory } from "./BidsPanel";
 import { PurchaseHistory } from "./PurchaseHistory";
 import "./accountSections.css";
 import { HeaderPopover } from "./HeaderPopover";
+import { ContactPreferences } from "./features/contact/ContactPreferences";
+import { contactPreferencesEnabled } from "./features/contact/contactClient";
 
 export const accountSections = [
   {
@@ -60,6 +64,16 @@ export const accountSections = [
     description: "Recorded changes in asset ownership",
     Icon: ArrowLeftRight,
   },
+  ...(contactPreferencesEnabled
+    ? [
+        {
+          code: "preferences" as const,
+          label: "Contact preferences",
+          description: "",
+          Icon: Settings,
+        },
+      ]
+    : []),
 ] as const;
 export type AccountSection = (typeof accountSections)[number]["code"];
 export type AccountDetailSection = Exclude<
@@ -75,6 +89,7 @@ export function readAccountSection(
     ? url.searchParams.get("account")
     : url.pathname.match(/^\/account\/([^/]+)$/)?.[1];
   return value === "bids" ||
+    (value === "preferences" && contactPreferencesEnabled) ||
     value === "purchases" ||
     value === "activity" ||
     value === "wallet"
@@ -178,6 +193,7 @@ export function AccountSectionPage({
     let active = true;
     setData(null);
     setError("");
+    if (section === "preferences") return;
     const account =
       section !== "purchases" && section !== "wallet"
         ? request<Account>(`${API}/account`, session)
@@ -207,7 +223,8 @@ export function AccountSectionPage({
     };
   }, [key, section, session, reload]);
   const current = data?.key === key ? data : null;
-  const label = accountSections.find((item) => item.code === section)!.label;
+  const label =
+    accountSections.find((item) => item.code === section)?.label || "";
   const refresh = () => {
     setReload((value) => value + 1);
     onRefresh?.();
@@ -239,7 +256,9 @@ export function AccountSectionPage({
         <ArrowLeft size={17} />
         Back to dashboard
       </a>
-      {error ? (
+      {section === "preferences" ? (
+        contactPreferencesEnabled && <ContactPreferences session={session} />
+      ) : error ? (
         <>
           <h1>{label}</h1>
           <p className="error" role="alert">

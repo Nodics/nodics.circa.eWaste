@@ -425,9 +425,13 @@ export function AccountDashboard({
           <nav aria-label="Dashboard shortcuts">
             {accountSections
               .filter((section) =>
-                ["wallet", "bids", "purchases", "activity"].includes(
-                  section.code,
-                ),
+                [
+                  "wallet",
+                  "bids",
+                  "purchases",
+                  "activity",
+                  "preferences",
+                ].includes(section.code),
               )
               .map(({ code, label, Icon }) => (
                 <a

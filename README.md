@@ -1,5 +1,22 @@
 # Circa eWaste
 
+The shared sign-in source includes an explicit Employee participation/terms path
+and owner-issued Customer handoff, with separate cookie/CSRF namespaces and no
+staff permission reuse. The switch stays within Employee cookie scope and returning
+users consume owner current-terms/switch flags without unnecessary renewal.
+Deployment qualifications and contact-preferences customization are documented in the
+[frontend workflow contract](docs/frontend-workflows.md). Isolated fixtures passed
+in the joint validation batch; source/static checks do not establish live acceptance. Contact verification
+and independent notification consent/suppression use Profile's public self workspace.
+`VITE_CIRCA_CONTACT_PREFERENCES_ENABLED` defaults off; login email is not proof or
+consent, and enabling presentation never qualifies the backend.
+
+Purchase history renders fulfillment outlet evidence only for REDEEMED Commerce
+entitlements with canonical Store reference and positive recorded revision. Store
+authorization/Promotion conditions stay backend-owned; Circa does not choose staff
+scope, redeem an outlet or create another purchase. The extended isolated fixture
+passed; runtime allocations and joint customer acceptance remain gated.
+
 Circa is the connected customer storefront for Nodics Waste, Location, Profile,
 Media, Copilot, Loyalty and Commerce. The local sample runs at
 http://localhost:3600 and keeps customer state in the owning backend services.
@@ -10,6 +27,12 @@ Start the Kickoff runtimes described in the [customer journey guide](../../nodic
 then run `npm install` and `npm run dev -- --host 127.0.0.1 --port 3600` here.
 Run `npm run verify` for types, interaction checks and the production build.
 The live browser checks require the connected local sample services.
+
+Local public media (`/nodics/media/v0/content`) and protected media requests use
+`VITE_CIRCA_MEDIA_TARGET`, defaulting to the Media runtime on port 4312. Published
+CMS content uses `VITE_CIRCA_WCMS_ONLINE_TARGET` on port 4314. Keep these capability
+owners separate; sending media to WCMS can render broken images even when the
+published page itself loads. Proxy routing does not import or publish media.
 
 ## Sample accounts
 
@@ -23,6 +46,21 @@ adds real local records and transactions, so the running balances and counts
 change. Reloading the website retains those changes.
 
 ## Connected journeys
+
+Purchased-coupon history supports **Refresh purchases** for an authoritative
+read after merchant confirmation. It shows saved receipt, merchant reference and
+valid confirmation time without inventing store evidence or repeating purchase,
+claim, redemption or wallet commands. Failed refreshes hide token-reveal actions;
+changing customer session clears displayed history and invalidates late reveals.
+`src/PurchaseHistory.test.tsx` contains independent refresh/session fixtures.
+The visible page refreshes every 60 seconds and on return/focus, pausing while a
+read or reveal is busy. The component's `refreshIntervalMs` presentation option
+accepts 15-300 seconds; invalid values use 60 seconds. This customizes freshness,
+not entitlement eligibility or redemption authority. Failed/loading refreshes
+explicitly mark retained history as potentially stale. Revealed tokens are
+cleared on refresh, session change and unmount-related request invalidation.
+This source increment is not live merchant/store acceptance; store-specific
+redemption evidence and complete programme validation remain open.
 
 - **Submit eWaste** is always available above the Telegram/mobile tab bar and
   through the website's persistent bottom-right recycling button.
@@ -73,6 +111,12 @@ or certified carbon claim. Bidding/hold policy, production merchant redemption,
 role hierarchy and full WCMS page-composition publishing remain deployment work.
 
 ## Ownership
+
+Frontend contributor guidance for purchase history, coupon evidence, order-review
+recovery, eWaste boundaries and safe customization is in
+[Frontend Workflow Contract](docs/frontend-workflows.md). The October source batch
+adds bounded history/token validation and explicit same-request review recovery.
+Its isolated fixtures passed; connected lifecycle acceptance remains separately gated.
 
 This frontend stores only UI state and authenticated session/draft references.
 It does not own submissions, assets, wallets, coupon codes, or settlement ledgers.

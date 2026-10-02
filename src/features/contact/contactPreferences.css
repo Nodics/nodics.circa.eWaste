@@ -1,0 +1,41 @@
+/* Self-contact tools inherit account styling without widening Web/mobile hosts. */
+.contact-preferences {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.account-section-page .contact-preferences h1 {
+  font-size: 26px;
+  letter-spacing: 0;
+}
+.contact-preferences h2 {
+  font-size: 19px;
+  letter-spacing: 0;
+}
+.contact-preferences label {
+  font-size: 13px;
+  margin: 0;
+}
+.contact-preferences button,
+.contact-preferences select,
+.contact-preferences input {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.contact-preferences .contact-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.contact-preferences .contact-choice input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  margin: 1px 0 0;
+}

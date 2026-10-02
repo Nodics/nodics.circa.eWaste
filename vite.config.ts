@@ -10,7 +10,11 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       allowedHosts: [".trycloudflare.com"],
       proxy: {
-        "/nodics/commsApi": {target:env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4340",changeOrigin:true},
+        "/nodics/commsApi": {
+          target:
+            env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4340",
+          changeOrigin: true,
+        },
         "/nodics/locationMap": {
           target: env.VITE_CIRCA_LOCATION_TARGET ?? "http://127.0.0.1:4380",
           changeOrigin: true,
@@ -24,7 +28,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/nodics/media/v0/content": {
-          target: env.VITE_CIRCA_WCMS_ONLINE_TARGET ?? "http://127.0.0.1:4314",
+          target: env.VITE_CIRCA_MEDIA_TARGET ?? "http://127.0.0.1:4312",
           changeOrigin: true,
         },
         "/nodics/media": {

@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+/** Customer authentication and explicit Employee participation entry; Profile owns proof, credentials and customer-only issuance. */
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { APP_API, request, type Session } from "./api";
+import { EmployeeCustomerParticipation } from "./EmployeeCustomerParticipation";
 
 /** Shared Web and embedded-channel authentication. Profile owns credentials and sessions; each host completes its verified channel link after successful sign-in. */
 export function CustomerAuthentication({
@@ -16,8 +18,25 @@ export function CustomerAuthentication({
   const [register, setRegister] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [registrationUncertain, setRegistrationUncertain] = useState(false);
   const pending = useRef(false);
+  const epoch = useRef(0);
+  const [employeeMode, setEmployeeMode] = useState(false);
+  useEffect(() => {
+    epoch.current++;
+    const activeEpoch = epoch;
+    return () => {
+      activeEpoch.current++;
+    };
+  }, []);
+  if (employeeMode)
+    return (
+      <EmployeeCustomerParticipation
+        onLogin={onLogin}
+        onCancel={() => setEmployeeMode(false)}
+      />
+    );
   return (
     <section
       className="customer-authentication"
@@ -33,6 +52,9 @@ export function CustomerAuthentication({
           event.preventDefault();
           if (pending.current) return;
           pending.current = true;
+          const attempt = epoch.current;
+          const registrationAttempt = register;
+          let registrationConfirmed = false;
           setBusy(true);
           setError("");
           const element = event.currentTarget,
@@ -47,11 +69,19 @@ export function CustomerAuthentication({
           if (passwordInput) passwordInput.value = "";
           try {
             if (register) {
-              await request(`${APP_API}/registrations`, null, {
-                email: loginId,
-                password,
-                name: data.get("name"),
-              });
+              const result = await request<{ registered?: unknown }>(
+                `${APP_API}/registrations`,
+                null,
+                {
+                  email: loginId,
+                  password,
+                  name: data.get("name"),
+                },
+              );
+              if (attempt !== epoch.current) return;
+              if (result?.registered !== true)
+                throw new Error("Registration could not be confirmed.");
+              registrationConfirmed = true;
               // Once registration succeeds, a later sign-in/link failure retries authentication only.
               setRegister(false);
               onModeChange?.(false);
@@ -64,18 +94,34 @@ export function CustomerAuthentication({
               null,
               { loginId, password },
             );
-            if (!auth.authToken)
+            if (attempt !== epoch.current) return;
+            if (
+              typeof auth?.authToken !== "string" ||
+              !auth.authToken ||
+              auth.authToken.length > 32768
+            )
               throw new Error(
                 "The sign-in response was incomplete. Please retry.",
               );
             await onLogin({ token: auth.authToken, loginId });
           } catch (cause) {
+            if (attempt !== epoch.current) return;
+            if (registrationAttempt && !registrationConfirmed) {
+              setRegistrationUncertain(true);
+              setRegister(false);
+              onModeChange?.(false);
+              setNotice(
+                "Registration could not be confirmed. Sign in to check your account; no new registration will be sent from this form.",
+              );
+            }
             setError(
               cause instanceof Error ? cause.message : "Sign in failed.",
             );
           } finally {
-            pending.current = false;
-            setBusy(false);
+            if (attempt === epoch.current) {
+              pending.current = false;
+              setBusy(false);
+            }
           }
         }}
       >
@@ -131,7 +177,7 @@ export function CustomerAuthentication({
         <button
           type="button"
           className="text-button"
-          disabled={busy}
+          disabled={busy || registrationUncertain}
           onClick={() => {
             const next = !register;
             setRegister(next);
@@ -143,7 +189,20 @@ export function CustomerAuthentication({
           {register ? "Sign in" : "Create an account"}
         </button>
       </p>
-
+      <button
+        type="button"
+        className="text-button"
+        disabled={busy}
+        onClick={() => {
+          setEmployeeMode(true);
+          setError("");
+          setNotice("");
+          setRegister(false);
+          onModeChange?.(false);
+        }}
+      >
+        Use employee account
+      </button>
     </section>
   );
 }

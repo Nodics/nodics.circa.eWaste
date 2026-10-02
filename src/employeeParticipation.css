@@ -1,0 +1,30 @@
+/* Shared Web/mobile/embedded terms; long owner content cannot widen the host. */
+.employee-participation {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.employee-participation > button,
+.employee-participation section > button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.employee-participation-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  margin: 0;
+}
+.employee-participation-consent input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  margin: 1px 0 0;
+}

@@ -6,6 +6,8 @@ import { request } from "./api";
 vi.mock("./api", () => ({
   APP_API: "/nodics/circa.ewaste/v0",
   request: vi.fn(),
+  saveSession: vi.fn(),
+  endSession: vi.fn(),
 }));
 const api = vi.mocked(request),
   password = "TestPassword!2026";
@@ -22,15 +24,53 @@ async function fill(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Password"), password);
 }
 describe("shared customer authentication", () => {
+  it("requires separate Employee input and never silently reuses Customer credentials", async () => {
+    const onLogin = vi.fn(),
+      user = userEvent.setup();
+    render(<CustomerAuthentication onLogin={onLogin} />);
+    await fill(user);
+    await user.click(
+      screen.getByRole("button", { name: "Use employee account" }),
+    );
+    expect(screen.getByLabelText("Employee login")).toHaveValue("");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(api).not.toHaveBeenCalled();
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
+  });
+  it("keeps an uncertain registration one-shot and offers authentication only", async () => {
+    api.mockResolvedValueOnce({ matchedCount: 1 });
+    const onLogin = vi.fn(),
+      user = userEvent.setup();
+    render(<CustomerAuthentication onLogin={onLogin} />);
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+    await user.type(screen.getByLabelText("Name"), "Asha");
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "could not be confirmed",
+    );
+    expect(
+      screen.getByRole("button", { name: "Create an account" }),
+    ).toBeDisabled();
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(api).toHaveBeenCalledTimes(1);
+    api.mockResolvedValueOnce({ authToken: "recovered" });
+    await user.type(screen.getByLabelText("Password"), password);
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+    expect(
+      api.mock.calls.filter(([url]) => url.endsWith("/registrations")),
+    ).toHaveLength(1);
+  });
   it("uses the same Profile email/password sign-in with no lookup or OTP step", async () => {
     api.mockResolvedValueOnce({ authToken: "access" });
     const onLogin = vi.fn(),
       user = userEvent.setup();
     render(<CustomerAuthentication onLogin={onLogin} />);
     await fill(user);
-    await user.click(
-      screen.getByRole("button", { name: "Sign in" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() =>
       expect(onLogin).toHaveBeenCalledWith({
         token: "access",
@@ -57,9 +97,7 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Create an account" }));
     await user.type(screen.getByLabelText("Name"), "Asha");
     await fill(user);
-    await user.click(
-      screen.getByRole("button", { name: "Create account" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(api.mock.calls[0]).toEqual([
       "/nodics/circa.ewaste/v0/registrations",
@@ -76,9 +114,7 @@ describe("shared customer authentication", () => {
       user = userEvent.setup();
     render(<CustomerAuthentication onLogin={onLogin} />);
     await fill(user);
-    await user.click(
-      screen.getByRole("button", { name: "Sign in" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid login");
     expect(onLogin).not.toHaveBeenCalled();
     expect(api).toHaveBeenCalledTimes(1);
@@ -94,17 +130,13 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Create an account" }));
     await user.type(screen.getByLabelText("Name"), "Asha");
     await fill(user);
-    await user.click(
-      screen.getByRole("button", { name: "Create account" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Connection interrupted",
     );
     api.mockResolvedValueOnce({ authToken: "recovered" });
     await user.type(screen.getByLabelText("Password"), password);
-    await user.click(
-      screen.getByRole("button", { name: "Sign in" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(
       api.mock.calls.filter(([url]) => url.endsWith("/registrations")),
@@ -132,9 +164,7 @@ describe("shared customer authentication", () => {
     ).toBeDisabled();
     resolve({ authToken: "access" });
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Sign in" }),
-      ).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled(),
     );
   });
 });

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { request, type Centre, type Experience } from '../api';
 vi.mock('../api', async importOriginal => ({ ...await importOriginal<typeof import('../api')>(), request: vi.fn() }));
@@ -18,6 +18,8 @@ const makeHost = (): JourneyHost => ({ kind: 'telegram', permission: vi.fn().moc
 it('keeps markers and cards synchronized and clears stale selection when filtering', async () => {
   render(<MobileCentres experience={experience} host={makeHost()} onStart={vi.fn()}/>);
   expect(screen.getByText('3 of 3 found')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh centres' })).toBeEnabled());
+  expect(request).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'beta' }));
   expect(screen.getByRole('button', { name: 'Close centre details' })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: 'Search collection centres' }), { target: { value: 'Dubai' } });
@@ -71,7 +73,9 @@ it('loads on entry and resumes without clearing search or issuing duplicate conc
  fireEvent.focus(window);
  fireEvent(window,new Event('pageshow'));
  expect(request).toHaveBeenCalledTimes(2);
- complete({...experience,centres:[{code:'sunmarke',name:{en:'Sunmarke School, JVT'}}]});
+ await act(async () => {
+  complete({...experience,centres:[{code:'sunmarke',name:{en:'Sunmarke School, JVT'}}]});
+ });
  await screen.findByRole('heading',{name:'Sunmarke School, JVT'});
  expect(screen.getByRole('textbox',{name:'Search collection centres'})).toHaveValue('Sunmarke');
 });

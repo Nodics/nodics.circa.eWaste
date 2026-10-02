@@ -372,9 +372,15 @@ export type Market = { assets: Offer[]; coupons: Offer[] };
 export type Session = { token: string; loginId: string };
 export const API = "/nodics/eWaste/v0";
 export const APP_API = "/nodics/circa.ewaste/v0";
+/** Projects nested owner envelopes without discarding explicit failure evidence. */
 export function unwrap<T>(value: unknown): T {
   let item = value as Record<string, unknown>;
   for (let i = 0; i < 6 && item && !Array.isArray(item); i++) {
+    if (
+      item.success === false ||
+      (typeof item.code === "string" && item.code.startsWith("ERR_"))
+    )
+      throw new ApiError("The owner response could not be confirmed.");
     if (item.data !== undefined) item = item.data as Record<string, unknown>;
     else if (item.result !== undefined)
       item = item.result as Record<string, unknown>;
@@ -403,6 +409,16 @@ export async function request<T>(
   method = body === undefined ? "GET" : "POST",
   options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<T> {
+  const switching =
+    path === "/nodics/profile/v0/employee/browser/customer-participation/switch";
+  const csrf =
+    switching || path.startsWith("/nodics/profile/v0/employee/browser/")
+      ? employeeCsrf()
+      : path.startsWith("/nodics/profile/v0/customer/browser/")
+        ? customerCsrf()
+        : "";
+  if (switching && (!csrf || !session))
+    throw new ApiError("The Employee browser session could not be confirmed.");
   const controller = new AbortController();
   const cancel = () => controller.abort();
   options.signal?.addEventListener("abort", cancel, { once: true });
@@ -420,10 +436,7 @@ export async function request<T>(
       headers: {
         "Content-Type": "application/json",
         "x-enterprise-code": "default",
-        ...(path.startsWith("/nodics/profile/v0/customer/browser/") &&
-        customerCsrf()
-          ? { "x-csrf-token": customerCsrf() }
-          : {}),
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
         ...(telegramLaunch
           ? { "x-circa-telegram-launch": telegramLaunch }
           : {}),
@@ -482,6 +495,15 @@ function customerCsrf(): string {
         `${import.meta.env.VITE_CUSTOMER_CSRF_COOKIE_NAME || "nodics_customer_csrf"}=`,
       ),
     );
+  return value ? decodeURIComponent(value.slice(value.indexOf("=") + 1)) : "";
+}
+/** Reads only the declared Employee CSRF companion; never substitutes Customer cookie proof. */
+function employeeCsrf(): string {
+  const name = import.meta.env.VITE_EMPLOYEE_CSRF_COOKIE_NAME || "nodics_axis_csrf";
+  const value = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(name + "="));
   return value ? decodeURIComponent(value.slice(value.indexOf("=") + 1)) : "";
 }
 /** Access credentials live only in memory; discard the legacy browser-storage copy. */

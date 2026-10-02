@@ -1,0 +1,10 @@
+.purchase-history .conversation-card,
+.purchase-history .activity-list > div > span,
+.order-review-dialog {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.purchase-history .coupon-token {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
