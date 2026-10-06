@@ -812,6 +812,7 @@ export function CircaApp() {
     [menu, setMenu] = useState(false),
     [headerIsScrolled, setHeaderIsScrolled] = useState(false),
     [assistant, setAssistant] = useState(false),
+    [sessionResetting, setSessionResetting] = useState(false),
     [selectedCentre, setSelectedCentre] = useState<Centre | null>(null),
     [resumeCode, setResumeCode] = useState<string>(),
     [refresh, setRefresh] = useState(0);
@@ -986,6 +987,10 @@ export function CircaApp() {
     saveSession(value);
     setSession(value);
     setLogin(false);
+    setSessionResetting(false);
+  }
+  function openLogin() {
+    if (!sessionResetting) setLogin(true);
   }
   function logout() {
     void endSession().catch(() =>
@@ -999,6 +1004,20 @@ export function CircaApp() {
     setAssistant(false);
     setResumeCode(undefined);
   }
+  function invalidateCustomerSession() {
+    setSessionResetting(true);
+    setLogin(false);
+    saveSession(null);
+    setSession(null);
+    setWallet(null);
+    setResumeCode(undefined);
+    void endSession()
+      .catch(() => undefined)
+      .finally(() => {
+        setSessionResetting(false);
+        openLogin();
+      });
+  }
   function submit() {
     setAssistant(true);
   }
@@ -1009,7 +1028,7 @@ export function CircaApp() {
         <Leaf size={42} />
         <h1>Your journey, all in one place.</h1>
         <p>Sign in to view your submissions, owned assets and wallet.</p>
-        <button className="primary" onClick={() => setLogin(true)}>
+        <button className="primary" onClick={openLogin}>
           Sign in or register
         </button>
       </main>
@@ -1087,7 +1106,7 @@ export function CircaApp() {
             offer={offer}
             session={session}
             wallet={wallet}
-            onLogin={() => setLogin(true)}
+            onLogin={openLogin}
             onComplete={refreshAll}
           />
         )}
@@ -1267,7 +1286,7 @@ export function CircaApp() {
             ) : (
               <button
                 className="secondary login-link"
-                onClick={() => setLogin(true)}
+                onClick={openLogin}
               >
                 Sign in <ArrowUpRight size={16} />
               </button>
@@ -1338,7 +1357,8 @@ export function CircaApp() {
         session={session}
         experience={experience}
         selectedCentre={selectedCentre}
-        onLogin={() => setLogin(true)}
+        onLogin={openLogin}
+        onCustomerIdentityInvalid={invalidateCustomerSession}
         onSubmitted={refreshAll}
         resumeCode={resumeCode}
       />

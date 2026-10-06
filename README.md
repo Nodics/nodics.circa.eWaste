@@ -5,7 +5,7 @@ and owner-issued Customer handoff, with separate cookie/CSRF namespaces and no
 staff permission reuse. The switch stays within Employee cookie scope and returning
 users consume owner current-terms/switch flags without unnecessary renewal.
 Deployment qualifications and contact-preferences customization are documented in the
-[frontend workflow contract](docs/frontend-workflows.md). Isolated fixtures passed
+[frontend implementation README](src/README.md). Isolated fixtures passed
 in the joint validation batch; source/static checks do not establish live acceptance. Contact verification
 and independent notification consent/suppression use Profile's public self workspace.
 `VITE_CIRCA_CONTACT_PREFERENCES_ENABLED` defaults off; login email is not proof or
@@ -112,9 +112,15 @@ role hierarchy and full WCMS page-composition publishing remain deployment work.
 
 ## Ownership
 
+Keep frontend contributor guidance in this README and source-near READMEs, not a
+separate `docs/` tree. Published product guides belong to
+[the framework documentation owner](../../nodics.ai/nodics.docs/docs/pages/accelerators/circa-overview.md);
+Circa sample setup and customer-specific journeys belong to
+[the Circa backend module](../../nodics.kickoff/modules/circa.ewaste/README.md).
+
 Frontend contributor guidance for purchase history, coupon evidence, order-review
 recovery, eWaste boundaries and safe customization is in
-[Frontend Workflow Contract](docs/frontend-workflows.md). The October source batch
+[Frontend Implementation README](src/README.md). The October source batch
 adds bounded history/token validation and explicit same-request review recovery.
 Its isolated fixtures passed; connected lifecycle acceptance remains separately gated.
 

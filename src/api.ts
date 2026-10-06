@@ -402,6 +402,15 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+/** Identifies expired or unresolved customer browser credentials without weakening domain authorization. */
+export function isCustomerIdentityError(cause: unknown): boolean {
+  if (!(cause instanceof ApiError)) return false;
+  return [
+    "ERR_AUTH_00001",
+    "ERR_WASTE_CUSTOMER_REQUIRED",
+    "ERR_MEDIA_CUSTOMER_REQUIRED",
+  ].includes(cause.code || "");
+}
 export async function request<T>(
   path: string,
   session?: Session | null,

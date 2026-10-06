@@ -205,3 +205,32 @@ it("desktop accuracy recovery uses a fresh capture and keeps the saved draft/pho
   expect(result.current.arrival?.nextAction).toBe("PHOTO");
   expect(calls.some(path => path.endsWith("/confirm"))).toBe(false);
 });
+
+it("customer identity loss notifies the shell and never exposes the backend message", async () => {
+  const { ApiError } = await import("../../api");
+  const onCustomerIdentityInvalid = vi.fn();
+  vi.mocked(request).mockImplementation(async (path) => {
+    calls.push(path);
+    if (path.endsWith("/arrival"))
+      throw new ApiError(
+        "Customer required: Customer identity is unavailable",
+        "ERR_WASTE_CUSTOMER_REQUIRED",
+      );
+    return draft;
+  });
+  const { result } = renderHook(() =>
+    useSubmissionJourney({
+      session,
+      open: true,
+      host,
+      onSubmitted: vi.fn(),
+      onCustomerIdentityInvalid,
+    }),
+  );
+  await waitFor(() => expect(onCustomerIdentityInvalid).toHaveBeenCalledOnce());
+  expect(result.current.error).toBe(
+    "Sign in again to continue. Your previous session could not be confirmed.",
+  );
+  expect(result.current.error).not.toContain("Customer identity is unavailable");
+  expect(result.current.busy).toBe("");
+});

@@ -1,4 +1,9 @@
-# Circa Frontend Workflow Contract
+# Circa Frontend Implementation
+
+This source README preserves the shared renderers' transport, state, recovery and
+verification contracts. Start with [the root README](../README.md#ownership) for
+setup and canonical backend documentation links. Backend rules described below
+are consumed API boundaries, not a second policy authority.
 
 This is storefront contributor guidance. The Circa accelerator's framework product
 documentation and imported content belong to the Nodics framework documentation

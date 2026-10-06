@@ -28,6 +28,7 @@ export function SubmissionAssistant({
   session,
   experience,
   onLogin,
+  onCustomerIdentityInvalid,
   onSubmitted,
   resumeCode,
   onboarding,
@@ -40,6 +41,7 @@ export function SubmissionAssistant({
   experience: Experience | null;
   selectedCentre: Centre | null;
   onLogin: () => void;
+  onCustomerIdentityInvalid?: () => void;
   onSubmitted: () => void;
   resumeCode?: string;
   onboarding?: ReactNode;
@@ -56,6 +58,7 @@ export function SubmissionAssistant({
     maximumAccuracyMetres: experience?.journey?.maximumAccuracyMetres,
     maximumPositionAgeMs: experience?.journey?.maximumPositionAgeMs,
     onSubmitted,
+    onCustomerIdentityInvalid,
   });
   const [input, setInput] = useState(""),
     [editing, setEditing] = useState(false),

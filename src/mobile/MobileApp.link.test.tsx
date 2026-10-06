@@ -6,11 +6,42 @@ import { MobileApp } from "./MobileApp";
 import { submissionLinkCode } from "../channels/submissionLink";
 import type { Experience, Session } from "../api";
 import type { JourneyHost } from "../channels/journeyHost";
+const api = vi.hoisted(() => {
+  class MockApiError extends Error {
+    constructor(message: string, public code?: string) {
+      super(message);
+      this.name = "ApiError";
+    }
+  }
+  return {
+    ApiError: MockApiError,
+    endSession: vi.fn(async () => undefined),
+    request: vi.fn(async () => ({
+      submissions: [],
+      events: [],
+      assets: [],
+      customer: { code: "customer" },
+      balances: [],
+      entries: [],
+      statuses: [],
+      total: 0,
+      items: [],
+    })),
+  };
+});
 vi.mock("../api", () => ({
   API: "/nodics/eWaste/v0",
-  request: vi.fn(async () => ({ submissions: [], events: [], assets: [], customer: { code: "customer" }, balances: [], entries: [], statuses: [], total: 0, items: [] })),
+  ApiError: api.ApiError,
+  request: api.request,
   statusLabel: (s: string) => s,
-  endSession: vi.fn(),
+  endSession: api.endSession,
+  isCustomerIdentityError: (cause: unknown) =>
+    cause instanceof api.ApiError &&
+    [
+      "ERR_AUTH_00001",
+      "ERR_WASTE_CUSTOMER_REQUIRED",
+      "ERR_MEDIA_CUSTOMER_REQUIRED",
+    ].includes(cause.code || ""),
 }));
 vi.mock("../cms", () => ({ usePublishedPage: () => ({ page: null }), contentText: () => "", publicMedia: (value: string) => value }));
 vi.mock("./MobileCentres", () => ({ MobileCentres: () => null }));
@@ -52,7 +83,7 @@ vi.mock("../CustomerAuthentication", () => ({
     </button>
   ),
 }));
-afterEach(() => { cleanup(); history.replaceState({}, "", "/"); sessionStorage.clear(); });
+afterEach(() => { cleanup(); history.replaceState({}, "", "/"); sessionStorage.clear(); api.request.mockClear(); api.endSession.mockClear(); });
 const experience = { presentation: { sampleMode: true } } as Experience,
   host: JourneyHost = {
     kind: "telegram",
@@ -177,4 +208,43 @@ it("continues a submission after sign-in while preserving the Telegram launch an
   expect(location.search).toContain("tgWebAppStartParam=launch-context");
   await user.click(screen.getByRole("button", {name:"Continue saved draft"}));
   expect(screen.getByText("Requested item: SAVED_DRAFT")).toBeInTheDocument();
+});
+
+it("clears an unresolved customer session before starting a new submission", async () => {
+  api.request.mockRejectedValueOnce(
+    new api.ApiError(
+      "Customer required: Customer identity is unavailable",
+      "ERR_WASTE_CUSTOMER_REQUIRED",
+    ),
+  );
+  function Harness() {
+    const [session, setSession] = useState<Session | null>({
+      loginId: "missing-customer",
+      token: "stale-token",
+    });
+    return (
+      <MobileApp
+        session={session}
+        experience={experience}
+        host={host}
+        onLogin={setSession}
+        onLogout={() => setSession(null)}
+      />
+    );
+  }
+  const user = userEvent.setup();
+  render(<Harness />);
+  expect(
+    await screen.findByText(/Sign in again to continue/),
+  ).toBeInTheDocument();
+  expect(api.endSession).toHaveBeenCalledOnce();
+  expect(screen.queryByText("New item journey")).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/Sign in to submit your eWaste/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Submit eWaste" }),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Sign in for this item" }));
+  expect(screen.getByText("New item journey")).toBeInTheDocument();
 });

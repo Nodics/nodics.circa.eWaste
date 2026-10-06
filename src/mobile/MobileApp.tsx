@@ -22,6 +22,7 @@ import {
 import {
   API,
   endSession,
+  isCustomerIdentityError,
   request,
   type Account,
   type Experience,
@@ -88,6 +89,8 @@ export function MobileApp({
   );
   const [updatesOpen, setUpdatesOpen] = useState(false);
   const [signInToSubmit, setSignInToSubmit] = useState(false);
+  const [sessionInvalid, setSessionInvalid] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState("");
   const [account, setAccount] = useState<Account | null>(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
@@ -95,16 +98,21 @@ export function MobileApp({
   const [signingOut, setSigningOut] = useState(false),
     [logoutError, setLogoutError] = useState("");
   const content = useRef<HTMLDivElement>(null);
+  const onLogoutRef = useRef(onLogout);
   const [scrolled, setScrolled] = useState(false);
   const cms = usePublishedPage("/", 0);
   const branding = cms.page?.sections.find(
     (section) => section.renderer === "circa.shell",
   )?.properties;
+  useEffect(() => {
+    onLogoutRef.current = onLogout;
+  }, [onLogout]);
   const refresh = useCallback(() => setReload((value) => value + 1), []);
   useEffect(() => {
     let active = true;
     setAccount(null);
     setError("");
+    setSessionInvalid(false);
     if (!session) {
       setLoading(false);
       return;
@@ -115,6 +123,20 @@ export function MobileApp({
         if (active) setAccount(value);
       })
       .catch((cause) => {
+        if (!active) return;
+        if (isCustomerIdentityError(cause)) {
+          setSessionInvalid(true);
+          setFlow(null);
+          setSignInToSubmit(true);
+          setTab("account");
+          setSessionNotice("Sign in again to continue. Your previous session could not be confirmed.");
+          void endSession()
+            .catch(() => undefined)
+            .finally(() => {
+              if (active) onLogoutRef.current();
+            });
+          return;
+        }
         if (active)
           setError(
             cause instanceof Error
@@ -169,6 +191,7 @@ export function MobileApp({
     setAccountSection(null);
     setTab("home");
     setSignInToSubmit(false);
+    setSessionNotice("");
     if (content.current) content.current.scrollTop = 0;
     setScrolled(false);
   }, []);
@@ -183,7 +206,7 @@ export function MobileApp({
     setFlow({});
   };
   const start = () => {
-    if (!session) {
+    if (!session || sessionInvalid) {
       setSignInToSubmit(true);
       setTab("account");
       return;
@@ -392,6 +415,7 @@ export function MobileApp({
             {!session ? (
               <>
                 {signInToSubmit && <p className="mobile-submission-intent" role="status">Sign in to submit your eWaste. We’ll continue with your item next.</p>}
+                {sessionNotice && <MobileNotice>{sessionNotice}</MobileNotice>}
                 <div className="mobile-account-art">
                   <UserRound size={32} />
                 </div>
@@ -399,6 +423,8 @@ export function MobileApp({
                   sample={experience.presentation.sampleMode === true}
                   onLogin={async (value) => {
                     await onLogin(value);
+                    setSessionInvalid(false);
+                    setSessionNotice("");
                     if (signInToSubmit) {
                       beginSubmission(value);
                       setSignInToSubmit(false);

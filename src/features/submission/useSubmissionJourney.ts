@@ -3,6 +3,7 @@ import {
   API,
   ApiError,
   commandKey,
+  isCustomerIdentityError,
   request,
   type Centre,
   type Facts,
@@ -44,6 +45,7 @@ export function useSubmissionJourney({
   maximumAccuracyMetres,
   maximumPositionAgeMs,
   onSubmitted,
+  onCustomerIdentityInvalid,
 }: {
   session: Session | null;
   open: boolean;
@@ -54,6 +56,7 @@ export function useSubmissionJourney({
   maximumAccuracyMetres?: number;
   maximumPositionAgeMs?: number;
   onSubmitted: () => void;
+  onCustomerIdentityInvalid?: () => void;
 }) {
   const [draft, setDraft] = useState<Submission | null>(null),
     [arrival, setArrival] = useState<Arrival | null>(null),
@@ -106,6 +109,11 @@ export function useSubmissionJourney({
       return active();
     } catch (e) {
       if (active() && !(e instanceof DOMException && e.name === "AbortError")) {
+        if (isCustomerIdentityError(e)) {
+          setError("Sign in again to continue. Your previous session could not be confirmed.");
+          onCustomerIdentityInvalid?.();
+          return false;
+        }
         setUnsupportedItem(e instanceof ApiError && e.code === "ERR_WASTE_ITEM_UNSUPPORTED");
         setImpactRecovery(e instanceof ApiError && e.code === "ERR_WASTE_IMPACT_INPUT_INVALID");
         const locationMessages: Record<string, string> = {

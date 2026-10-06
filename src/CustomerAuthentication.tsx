@@ -167,7 +167,7 @@ export function CustomerAuthentication({
             {error}
           </div>
         )}
-        <button className="primary full" disabled={busy}>
+        <button type="submit" className="primary full" disabled={busy}>
           {busy ? "Please wait…" : register ? "Create account" : "Sign in"}
           <ArrowRight size={17} />
         </button>

@@ -42,9 +42,9 @@ plain text bounds. Change layout in this shared renderer rather than splitting
 Web/mobile policy. Do not add frontend permission/role rules, default ALLOW,
 Customer-to-Employee credential reuse or arbitrary owner selectors.
 
-Fixtures in `contactClient.test.ts`, `ContactPreferences.test.tsx` and
-`contactNavigation.test.ts` are authored
-but **NOT RUN**. `npm run typecheck` is static only. Connected delivery, expiry,
+Run the fixtures in `contactClient.test.ts`, `ContactPreferences.test.tsx` and
+`contactNavigation.test.ts` from this frontend repository. Historical results do
+not establish current acceptance; `npm run typecheck` is static only. Connected delivery, expiry,
 actual-self denial, held-state recovery, suppression and responsive/native Telegram
 acceptance require the joint session. See the broader
-[workflow contract](../../../docs/frontend-workflows.md).
+[frontend implementation README](../../README.md#contact-proof-and-notification-preferences).
