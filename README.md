@@ -23,16 +23,19 @@ http://localhost:3600 and keeps customer state in the owning backend services.
 
 ## Run and verify
 
-Start the Kickoff runtimes described in the [customer journey guide](../../nodics.kickoff/modules/circa.ewaste/docs/pages/customer-journey.md),
+Start the Kickoff runtimes described in the [Circa backend setup guide](../../nodics.kickoff/modules/circa.ewaste/README.md),
 then run `npm install` and `npm run dev -- --host 127.0.0.1 --port 3600` here.
 Run `npm run verify` for types, interaction checks and the production build.
 The live browser checks require the connected local sample services.
 
-Local public media (`/nodics/media/v0/content`) and protected media requests use
-`VITE_CIRCA_MEDIA_TARGET`, defaulting to the Media runtime on port 4312. Published
-CMS content uses `VITE_CIRCA_WCMS_ONLINE_TARGET` on port 4314. Keep these capability
-owners separate; sending media to WCMS can render broken images even when the
-published page itself loads. Proxy routing does not import or publish media.
+Published CMS content and public Media delivery (`/nodics/media/v0/content`) use
+`VITE_CIRCA_WCMS_ONLINE_TARGET`, defaulting to Online on port 4314. Other Media
+operations, including uploads and downloads, retain `VITE_CIRCA_MEDIA_TARGET`
+on Staged port 4312. Private customer photos use authenticated eWaste resource
+`/photo` reads and `/submissions/prepare` uploads through the domain backend.
+Keep the public-content proxy before general Media and domain routes. Docker
+preserves the same split on Online 5314 and Staged 5312 in `docker/nginx.conf`.
+Proxy routing does not import or publish media.
 
 ## Sample accounts
 
@@ -72,7 +75,7 @@ redemption evidence and complete programme validation remain open.
   Inside Telegram, the submission screen uses native Back and places Help beside
   the progress steps. Browser clients retain the in-page header and Back control.
 
-- Shop and Coupons share search, filters, sorting, grid/list controls, exact counts and server pagination with the My Account listing controls. Quick view and direct product detail pages preserve the listing URL state; purchasing still requires explicit review and confirmation. See the [catalogue guide](../../nodics.kickoff/modules/circa.ewaste/docs/pages/catalogue.md). Run `node test/live/catalogue-browsing.mjs` for read-only desktop/mobile acceptance.
+- Shop and Coupons share search, filters, sorting, grid/list controls, exact counts and server pagination with the My Account listing controls. Quick view and direct product detail pages preserve the listing URL state; purchasing still requires explicit review and confirmation. See the [eWaste catalogue owner](../../nodics.ai/nodics.accelerators/modules/waste/modules/eWaste/README.md). Run `node test/live/catalogue-browsing.mjs` for read-only desktop/mobile acceptance.
 
 - Public homepage, three original banner images, asset/coupon previews and a
   Location-backed collection-centre map with an accessible centre list.
@@ -114,7 +117,7 @@ role hierarchy and full WCMS page-composition publishing remain deployment work.
 
 Keep frontend contributor guidance in this README and source-near READMEs, not a
 separate `docs/` tree. Published product guides belong to
-[the framework documentation owner](../../nodics.ai/nodics.docs/docs/pages/accelerators/circa-overview.md);
+[the eWaste documentation owner](../../nodics.ai/nodics.accelerators/modules/waste/modules/eWaste/README.md);
 Circa sample setup and customer-specific journeys belong to
 [the Circa backend module](../../nodics.kickoff/modules/circa.ewaste/README.md).
 

@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/nodics/media/v0/content": {
-          target: env.VITE_CIRCA_MEDIA_TARGET ?? "http://127.0.0.1:4312",
+          target: env.VITE_CIRCA_WCMS_ONLINE_TARGET ?? "http://127.0.0.1:4314",
           changeOrigin: true,
         },
         "/nodics/media": {
