@@ -328,7 +328,13 @@ export type Account = {
   customer: { code: string; loginId: string };
   submissions: Submission[];
   assets: Asset[];
-  events: { code: string; eventType?: string }[];
+  events: {
+    code: string;
+    assetCode?: string;
+    transferType?: string;
+    transferStatus?: string;
+    occurredAt?: string;
+  }[];
 };
 export type Wallet = {
   wallet: { code: string; ownerCode?: string };
@@ -371,7 +377,7 @@ export type Offer = {
 export type Market = { assets: Offer[]; coupons: Offer[] };
 export type Session = { token: string; loginId: string };
 export const API = "/nodics/eWaste/v0";
-export const APP_API = "/nodics/circa.ewaste/v0";
+export const APP_API = "/nodics/eWaste/v0";
 /** Projects nested owner envelopes without discarding explicit failure evidence. */
 export function unwrap<T>(value: unknown): T {
   let item = value as Record<string, unknown>;
@@ -447,7 +453,7 @@ export async function request<T>(
         "x-enterprise-code": "default",
         ...(csrf ? { "x-csrf-token": csrf } : {}),
         ...(telegramLaunch
-          ? { "x-circa-telegram-launch": telegramLaunch }
+          ? { "x-ewaste-telegram-launch": telegramLaunch }
           : {}),
         ...(session ? { Authorization: `Bearer ${session.token}` } : {}),
       },

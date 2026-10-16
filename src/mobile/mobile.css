@@ -41,10 +41,39 @@
 .mobile-header .mobile-icon { color: inherit; border: 1px solid #dfe7e1; border-radius: 6px; }
 .mobile-app .mobile-header.is-scrolled :focus-visible { outline: 2px solid #deedbb; outline-offset: 4px; }
 .mobile-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding: 26px 24px 30px; scrollbar-width: thin; scroll-padding-block: 20px; }
-.mobile-tabs { flex-shrink: 0; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 12px max(6px, env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)); border-top: 1px solid #365340; background: var(--shell-green); }
+.mobile-tabs { flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 12px max(6px, env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)); border-top: 1px solid #365340; background: var(--shell-green); }
 .mobile-tabs button { border: 0; background: transparent; color: #a3b7a8; min-height: 44px; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; line-height: 1.2; font-weight: 550; border-radius: 12px; }
 .mobile-tabs button svg { width: 19px; height: 19px; }
 .mobile-tabs button[aria-current] { color: #c4e6b5; background: #ffffff0c; }
+.mobile-shop-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid var(--mobile-line); padding-bottom: 14px; }
+.mobile-shop-kinds a { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px; border: 1px solid var(--mobile-line); border-radius: 6px; color: var(--mobile-ink); text-decoration: none; }
+.mobile-shop-kinds a[aria-current] { background: #e5efdf; border-color: #51773b; }
+.mobile-catalogue { min-width: 0; overflow-wrap: anywhere; }
+.mobile-catalogue main.container { width: 100%; padding: 20px 0 28px; }
+.mobile-catalogue .catalogue-items-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 14px; }
+.mobile-catalogue .catalogue-product-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.mobile-catalogue .catalogue-items-list .catalogue-card { grid-template-columns: 100px minmax(0, 1fr); gap: 14px; }
+.mobile-catalogue .catalogue-items-list .catalogue-card-description { display: none; }
+.mobile-catalogue h1 { font-size: 26px; letter-spacing: 0; }
+.mobile-catalogue h2 { font-size: 18px; letter-spacing: 0; }
+.mobile-catalogue .catalogue-banner-copy { max-width: none; padding: 22px; }
+.mobile-catalogue .catalogue-page-heading { display: flex; flex-direction: column; min-height: 0; }
+.mobile-catalogue .catalogue-banner-image { position: static; width: 100%; height: 150px; }
+.mobile-catalogue .catalogue-banner-shade { display: none; }
+.mobile-catalogue .catalogue-quick-trigger { min-width: 44px; min-height: 44px; padding: 8px; }
+.mobile-catalogue .catalogue-quick-trigger span { display: none; }
+.mobile-catalogue .catalogue-results-heading { flex-wrap: wrap; }
+.mobile-catalogue .listing-toolbar { flex-wrap: wrap; gap: 10px; }
+.mobile-catalogue .listing-search { flex-basis: calc(100% - 104px); min-width: 0; }
+.mobile-catalogue .listing-filter-button { width: 94px; padding-inline: 8px; }
+.mobile-catalogue .listing-sort { margin-left: auto; }
+.mobile-catalogue .listing-sort > span { display: none; }
+.mobile-catalogue .listing-sort select { max-width: 185px; }
+.mobile-catalogue .listing-layout-controls button { width: 44px; height: 44px; }
+.mobile-catalogue .listing-result-controls { flex-wrap: wrap; gap: 12px; }
+.mobile-catalogue .catalogue-summary-facts > div { flex-wrap: wrap; gap: 6px 16px; }
+.mobile-catalogue .catalogue-summary-facts dd { overflow-wrap: anywhere; }
+.mobile-catalogue .primary { min-height: 44px; white-space: normal; text-align: center; }
 .mobile-submit-bar { flex-shrink: 0; padding: 10px 18px; background: var(--mobile-paper); border-top: 1px solid var(--mobile-line); }
 .mobile-submit-bar .mobile-primary { min-height: 50px; border-radius: 12px; background: var(--mobile-ink); font-size: 15px; }
 .mobile-submit-bar .mobile-primary span { flex: 1; text-align: left; }

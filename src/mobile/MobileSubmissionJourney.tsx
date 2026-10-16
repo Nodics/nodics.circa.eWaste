@@ -1,7 +1,7 @@
 import { ItemDetailsCard } from "../features/submission/ItemDetailsCard";
 import { LocationAccessHelp } from "../features/submission/LocationAccessHelp";
 import type { Content } from "../cms";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, Camera, Check, CheckCircle2, ChevronRight, ImagePlus, MapPin, MessageCircle, Plus, ShieldCheck } from "lucide-react";
 import { nameOf, type Experience, type Facts, type Session } from "../api";
 import type { JourneyHost } from "../channels/journeyHost";
@@ -10,6 +10,7 @@ import { CentreCard, LeaveDialog, MobileHeader, MobileNotice } from "./MobilePri
 import { MobileCentres } from "./MobileCentres";
 
 const editableValues = (facts: Facts) => [facts.name || "", facts.description || ""];
+const descriptionMaxLength = 2000;
 
 /** Mobile presentation over the same owner-governed controller used by the website. */
 export function MobileSubmissionJourney({ session, experience, host, code, onExit, onSubmitted, branding }: {
@@ -18,6 +19,7 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
   const journey = useSubmissionJourney({ session, open: true, resumeCode: code, restoreFromStorage: false, host, captureTimeoutMs: experience.journey?.captureTimeoutMs, maximumAccuracyMetres: experience.journey?.maximumAccuracyMetres, maximumPositionAgeMs: experience.journey?.maximumPositionAgeMs, onSubmitted });
   const { draft, arrival, busy, error, preview, ready, submitted, permission } = journey;
   const [editing, setEditing] = useState(false), [facts, setFacts] = useState<Facts>({});
+  const descriptionCountId = useId();
   const [previousStep, setPreviousStep] = useState<"centre" | "photo" | null>(null);
   const [help, setHelp] = useState(false), [message, setMessage] = useState("");
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -86,7 +88,8 @@ export function MobileSubmissionJourney({ session, experience, host, code, onExi
         {step === "edit" && <form id="mobile-item-editor" className="mobile-editor" onSubmit={async event => { event.preventDefault(); if (await journey.edit(facts)) { setEditing(false); setPreviousStep(null); } }}>
           <span className="mobile-eyebrow">Make it yours</span><h1>Check the details.</h1><p>Edit the name and description. The collection team reviews all other properties.</p>
           <label>Item name<input required maxLength={180} value={facts.name || ""} onChange={event => setFacts({ ...facts, name: event.target.value })} disabled={!!busy}/></label>
-          <label>Description<textarea maxLength={2000} rows={4} value={facts.description || ""} onChange={event => setFacts({ ...facts, description: event.target.value })} disabled={!!busy}/></label>
+          <label>Description<textarea maxLength={descriptionMaxLength} aria-describedby={descriptionCountId} rows={4} value={facts.description || ""} onChange={event => setFacts({ ...facts, description: event.target.value })} disabled={!!busy}/></label>
+          <small id={descriptionCountId} aria-live="polite" aria-atomic="true">{(facts.description || "").length} / {descriptionMaxLength} characters. {Math.max(0, descriptionMaxLength - (facts.description || "").length)} remaining.</small>
         </form>}
         {step === "receipt" && draft && <>
           <div className={`mobile-receipt ${draft.submissionStatus === "REJECTED" ? "needs-attention" : ""}`}><span className="mobile-large-icon">{draft.submissionStatus === "REJECTED" ? <MessageCircle size={32}/> : <Check size={36}/>}</span><span className="mobile-eyebrow">{draft.submissionStatus === "SUBMITTED" ? "Safely received" : "Review outcome"}</span><h1>{draft.submissionStatus === "APPROVED" ? "Approved." : draft.submissionStatus === "REJECTED" ? "Not approved." : "You’ve done your part."}</h1><p>{draft.descriptor?.identity.name || draft.submittedFacts.name || "Your item"}</p></div>

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CustomerUpdates } from "./OutcomeInbox";
@@ -87,6 +87,31 @@ it("keeps mobile launch context when an unavailable item falls back to the item 
   const link = await screen.findByRole("link", { name: "View your items" });
   expect(link).toHaveAttribute(
     "href",
-    "/telegram?tgWebAppStartParam=launch&view=submissions",
+    "/telegram?tgWebAppStartParam=launch&view=submissions&status=ALL&sort=RECENT&page=1&limit=12",
   );
+});
+
+it("navigates an authorized mobile notice in place and leaves modified links to the browser", async () => {
+  history.replaceState({}, "", "/telegram?account=wallet&shop=coupons&product=OLD&asset=OLD&status=DRAFT&sort=FEATURED&q=repair&page=9&tgWebAppStartParam=launch#host");
+  vi.mocked(request).mockImplementation(async (path) => path.includes("/customer/communications")
+    ? [message] : { contractVersion: 1, item });
+  const onNavigate = vi.fn();
+  render(<CustomerUpdates session={session} mobile onNavigate={onNavigate} />);
+  await userEvent.click(screen.getByRole("button", { name: "Updates" }));
+  const link = await screen.findByRole("link", { name: "View item details" });
+  const href = "/telegram?status=ALL&sort=RECENT&page=1&tgWebAppStartParam=launch&view=submissions&limit=12&submission=WST_1#host";
+  expect(link).toHaveAttribute("href", href);
+  let nativeDefault = false;
+  document.addEventListener("click", (event) => {
+    nativeDefault = !event.defaultPrevented;
+    event.preventDefault(); // jsdom does not implement the browser's new-tab navigation.
+  }, { once: true });
+  fireEvent.click(link, { button: 0, ctrlKey: true });
+  expect(nativeDefault).toBe(true);
+  expect(onNavigate).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Updates" }));
+  const reopened = await screen.findByRole("link", { name: "View item details" });
+  expect(fireEvent.click(reopened, { button: 0 })).toBe(false);
+  expect(onNavigate).toHaveBeenCalledExactlyOnceWith(href);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

@@ -25,7 +25,7 @@ try{
  await dialog.getByLabel('Password',{exact:true}).fill('CircaDemo!2026');
  await dialog.getByRole('button',{name:'Create account',exact:true}).click();
  await page.getByRole('button',{name:'Log out'}).waitFor();
- const experience=unwrap(await(await fetch(base+'/nodics/circa.ewaste/v0/experience')).json());
+ const experience=unwrap(await(await fetch(base+'/nodics/eWaste/v0/experience')).json());
  const centre=experience.centres.find(c=>c.code==='cc-dxb-01');
  await page.context().grantPermissions(['geolocation']);
  await page.context().setGeolocation({latitude:centre.location.latitude,longitude:centre.location.longitude,accuracy:5});

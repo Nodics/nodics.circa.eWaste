@@ -66,6 +66,39 @@ export function cataloguePath(kind: Offer["kind"]) {
 export function productHref(
   offer: Pick<Offer, "code" | "kind">,
   query?: CatalogueQuery,
+  mobile = false,
 ) {
+  if (mobile) return catalogueHref(offer.kind, query, offer.code);
   return `${cataloguePath(offer.kind)}/${encodeURIComponent(offer.code)}${query ? "?" + catalogueParams(query) : ""}`;
+}
+
+export function readMobileCatalogue(url = new URL(window.location.href)) {
+  const shop = url.searchParams.get("shop");
+  if (shop !== "assets" && shop !== "coupons") return null;
+  const product = url.searchParams.get("product");
+  return {
+    kind: shop === "assets" ? "ASSET" as const : "COUPON" as const,
+    code: product === null
+      ? null
+      : /^[A-Za-z0-9][A-Za-z0-9._-]{0,179}$/.test(product) ? product : "",
+  };
+}
+
+/** Host parameters are navigation context only, never catalogue API selectors. */
+export function catalogueHref(
+  kind: Offer["kind"],
+  query?: CatalogueQuery,
+  code?: string,
+) {
+  const url = new URL(window.location.href);
+  for (const key of [
+    "account", "view", "asset", "submission", "tab", "status", "categoryCode",
+    "itemTypeCode", "dateFrom", "dateTo", "limit", "product",
+    ...Object.keys(emptyCatalogueQuery),
+  ]) url.searchParams.delete(key);
+  url.searchParams.set("shop", kind === "ASSET" ? "assets" : "coupons");
+  if (query)
+    catalogueParams(query).forEach((value, key) => url.searchParams.set(key, value));
+  if (code !== undefined) url.searchParams.set("product", code);
+  return url.pathname + url.search + url.hash;
 }

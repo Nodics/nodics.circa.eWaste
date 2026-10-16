@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
 import {chromium} from '@playwright/test';
+import fs from 'node:fs/promises';
+import { installReadOnlyGuard } from './support/read-only-guard.mjs';
+const base = process.env.CIRCA_SITE_URL || process.env.CIRCA_URL || 'http://localhost:3600';
+await fs.mkdir('/tmp/circa-batch', {recursive:true});
 const browser=await chromium.launch();
-const context=await browser.newContext({viewport:{width:1440,height:1000}});
+const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block'});
 const page=await context.newPage();
+const verifyReadOnly = await installReadOnlyGuard(context, base);
 const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 try {
- await page.goto(process.env.CIRCA_URL || 'http://localhost:3600');
+ await page.goto(base);
  await page.getByRole('heading',{name:'Your old tech. A new kind of value.'}).waitFor();
  await page.waitForFunction(()=>[...document.querySelectorAll('.hero-image,.brand img')].every(image=>image.complete&&image.naturalWidth>0));
  assert.match(await page.locator('.hero-image').getAttribute('src'),/\/nodics\/media\/v0\/content\//);
@@ -22,7 +27,7 @@ try {
  await page.getByRole('heading',{name:'Privacy in this local sample'}).waitFor();
  await page.getByRole('link',{name:'Terms',exact:true}).click();
  await page.getByRole('heading',{name:'Local sample terms'}).waitFor();
- await page.goto('http://localhost:3600');
+ await page.goto(base);
  await page.setViewportSize({width:390,height:844});
  await page.getByRole('heading',{name:'Your old tech. A new kind of value.'}).waitFor();
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -32,5 +37,6 @@ try {
  await page.getByRole('alert').filter({hasText:'Published website content is temporarily unavailable.'}).waitFor();
  assert.equal(await page.locator('.hero').count(),0,'An unavailable Online release cannot fall back to unpublished banners');
  assert.deepEqual(errors,[]);
+ verifyReadOnly();
  console.log('PASS Online CMS page composition, all banners, Media sources, policy navigation and reload, mobile layout, unavailable-release handling.');
 } catch(error){await page.screenshot({path:'/tmp/circa-batch/cms-browser-failure.png'});throw error;} finally {await browser.close();}

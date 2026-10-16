@@ -59,6 +59,7 @@ import {
   readSession,
   restoreSession,
   endSession,
+  isCustomerIdentityError,
   request,
   saveSession,
   statusLabel,
@@ -71,6 +72,7 @@ import {
 } from "./api";
 import { CollectionMap } from "./CollectionMap";
 import { SubmissionAssistant } from "./SubmissionAssistant";
+import type { JourneyHost } from "./channels/journeyHost";
 
 function Lines({ value }: { value: string }) {
   return (
@@ -474,12 +476,18 @@ function Contact({
           setBusy(true);
           setError("");
           try {
-            const r = await request<{ code: string }>(
-              `${APP_API}/contact`,
+            const r = await request<{ referenceCode: string }>(
+              "/nodics/engagement/v0/public/contact-submissions",
               session,
-              { ...fields, idempotencyKey: key.current },
+              {
+                type: "ENQUIRY", contactEmail: String(fields.email || "").trim().toLowerCase(),
+                subject: String(fields.subject || "").trim(),
+                message: "From: " + String(fields.name || "").trim() + "\n\n" + String(fields.message || "").trim(),
+                site: "circa", source: "CIRCA_CONTACT_FORM", idempotencyKey: key.current,
+              },
             );
-            setReceipt(r.code);
+            if (!r.referenceCode) throw new Error("Your message was not acknowledged. Please retry.");
+            setReceipt(r.referenceCode);
           } catch (err) {
             setError(
               err instanceof Error
@@ -630,12 +638,18 @@ export function TransactionPage({
   wallet,
   onLogin,
   onComplete,
+  accountUrl = "/account",
+  host,
+  onBack,
 }: {
   offer: Offer;
   session: Session | null;
   wallet: Wallet | null;
   onLogin: () => void;
   onComplete: () => void;
+  accountUrl?: string;
+  host?: JourneyHost;
+  onBack?: () => void;
 }) {
   const [review, setReview] = useState(false),
     [reviewWallet, setReviewWallet] = useState<Wallet | null>(null),
@@ -647,7 +661,20 @@ export function TransactionPage({
       entitlementCode?: string;
     } | null>(null),
     key = useRef(commandKey());
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
+  useEffect(() => {
+    return host?.bindBack?.(
+      review ? () => { if (!busy) setReview(false); } : onBack || (() => {}),
+    );
+  }, [host, review, busy, onBack]);
   const currentWallet = reviewWallet || wallet;
+  const ownsAsset = (value: Wallet | null) =>
+    offer.kind === "ASSET" && !!offer.ownerCode &&
+    offer.ownerCode === value?.wallet.ownerCode;
   const balance = Number(
     currentWallet?.balances.find((b) => b.rewardTypeCode === "points")
       ?.available || 0,
@@ -658,7 +685,9 @@ export function TransactionPage({
     setError("");
     try {
       const latest = await request<Wallet>(`${API}/wallet`, session);
+      if (!active.current) return;
       setReviewWallet(latest);
+      if (ownsAsset(latest)) return;
       const available = Number(
         latest.balances.find((b) => b.rewardTypeCode === "points")?.available ||
           0,
@@ -669,13 +698,15 @@ export function TransactionPage({
       }
       setReview(true);
     } catch (e) {
+      if (!active.current) return;
+      if (isCustomerIdentityError(e)) onLogin();
       setError(
         e instanceof Error
           ? e.message
           : "Your balance could not be refreshed. Please try again.",
       );
     } finally {
-      setBusy(false);
+      if (active.current) setBusy(false);
     }
   }
   return (
@@ -695,7 +726,7 @@ export function TransactionPage({
               Coupon: <strong>{result.entitlementCode}</strong>
             </p>
           )}
-          <a className="primary" href="/account">
+          <a className="primary" href={accountUrl}>
             Go to My Account
           </a>
         </div>
@@ -706,11 +737,9 @@ export function TransactionPage({
             <>
               <p>
                 Your available balance:{" "}
-                {currentWallet ? `${balance} points` : "Loading…"}
+                {currentWallet ? `${balance} points` : "Checked when you review your purchase"}
               </p>
-              {offer.kind === "ASSET" &&
-              offer.ownerCode &&
-              offer.ownerCode === currentWallet?.wallet.ownerCode ? (
+              {ownsAsset(currentWallet) ? (
                 <p>You own this asset.</p>
               ) : (
                 <button
@@ -723,7 +752,7 @@ export function TransactionPage({
                   <ArrowRight size={16} />
                 </button>
               )}
-              {currentWallet && balance < offer.rewardPrice && (
+              {!error && currentWallet && balance < offer.rewardPrice && (
                 <p>More points are needed for this purchase.</p>
               )}
             </>
@@ -737,7 +766,7 @@ export function TransactionPage({
       {offer.kind === "ASSET" &&
         offer.biddingAvailable &&
         session &&
-        offer.ownerCode !== wallet?.wallet.ownerCode &&
+        !ownsAsset(currentWallet) &&
         !result && <BidComposer offer={offer} session={session} />}
       {review && (
         <Dialog
@@ -780,13 +809,19 @@ export function TransactionPage({
                   expectedRevision: offer.revision,
                   idempotencyKey: key.current,
                 });
+                if (!active.current) return;
                 setResult(r);
                 setReview(false);
                 onComplete();
               } catch (e) {
+                if (!active.current) return;
                 setError(e instanceof Error ? e.message : "Purchase failed.");
+                if (isCustomerIdentityError(e)) {
+                  setReview(false);
+                  onLogin();
+                }
               } finally {
-                setBusy(false);
+                if (active.current) setBusy(false);
               }
             }}
           >

@@ -59,7 +59,7 @@ try {
   await page.getByRole("button", { name: "Log out" }).waitFor();
   console.log("PASS Profile registration and sign-in");
   const exp = unwrap(
-    await (await fetch(base + "/nodics/circa.ewaste/v0/experience")).json(),
+    await (await fetch(base + "/nodics/eWaste/v0/experience")).json(),
   );
   const centre = exp.centres.find(
     (c) => process.env.CIRCA_COLLECTION_CENTRE

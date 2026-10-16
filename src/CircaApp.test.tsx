@@ -246,6 +246,36 @@ async function signIn() {
   return user;
 }
 describe("connected Circa journeys", () => {
+  it.each([true, false])("uses the Engagement contact owner and requires its receipt (acknowledged=%s)", async acknowledged => {
+    const original = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      const url = String(args[0]);
+      if (url.includes("/delivery/pages/resolve")) {
+        const payload = await (await original(...args)).json();
+        payload.result.page.components.push({ code: "contact", renderer: "circa.contact", rendererContractVersion: 1, properties: {}, index: 3 });
+        return new Response(JSON.stringify(payload), { status: 200 });
+      }
+      if (url === "/nodics/engagement/v0/public/contact-submissions") {
+        calls.push({ url, method: String(args[1]?.method), body: JSON.parse(String(args[1]?.body)) });
+        return new Response(JSON.stringify({ data: acknowledged ? { referenceCode: "ENQUIRY-1" } : {} }), { status: 200 });
+      }
+      return original(...args);
+    });
+    render(<CircaApp />);
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Your name"), "Sample Person");
+    await user.type(screen.getByLabelText("Email address"), "Person@Example.test");
+    await user.type(screen.getByLabelText("Subject"), "Collection enquiry");
+    await user.type(screen.getByLabelText("Your message"), "Please explain collection availability.");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+    if (acknowledged) await screen.findByText("Keep this reference: ENQUIRY-1");
+    else await screen.findByText("Your message was not acknowledged. Please retry.");
+    const submitted = calls.filter(call => call.method === "POST");
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].url).toBe("/nodics/engagement/v0/public/contact-submissions");
+    expect(submitted[0].body).toEqual({ type: "ENQUIRY", contactEmail: "person@example.test", subject: "Collection enquiry",
+      message: "From: Sample Person\n\nPlease explain collection availability.", site: "circa", source: "CIRCA_CONTACT_FORM", idempotencyKey: expect.any(String) });
+  });
   it("keeps account sections off the item listing and opens each from account navigation", async () => {
     saveSession({ token: "test", loginId: "customer@example.test" });
     history.replaceState({}, "", "/account/items");
@@ -374,7 +404,7 @@ it("retains website submission intent through sign-in from a secondary page", as
   expect(calls.some(call => /confirm|purchase/.test(call.url) && call.method === "POST")).toBe(false);
 });
 
-it.each(["ERR_CIRCA_POSITION_IMPRECISE", "ERR_CIRCA_POSITION_ACCURACY_REQUIRED"])("lets a laptop user browse centres after %s without confirming arrival", async code => {
+it.each(["ERR_EWASTE_POSITION_IMPRECISE", "ERR_EWASTE_POSITION_ACCURACY_REQUIRED"])("lets a laptop user browse centres after %s without confirming arrival", async code => {
   const original = vi.mocked(fetch).getMockImplementation()!;
   vi.mocked(fetch).mockImplementation(async (...args) => {
     if (String(args[0]).endsWith("/arrival")) {

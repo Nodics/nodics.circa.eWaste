@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import type { Experience } from '../api';
 import type { JourneyHost } from '../channels/journeyHost';
 import { useSubmissionJourney } from '../features/submission/useSubmissionJourney';
@@ -92,6 +93,37 @@ it('removes the prompt when edits are reverted to the displayed original values'
   act(() => nativeBack());
   expect(screen.getByText('A better next step.')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('counts description characters accessibly and saves the complete text beyond 180 characters', async () => {
+  const user = userEvent.setup();
+  showJourney(true);
+  await user.click(screen.getByRole('button', { name: 'Edit name and description' }));
+  const description = screen.getByRole('textbox', { name: 'Description' });
+  expect(description).toHaveAttribute('maxlength', '2000');
+  expect(screen.getByRole('textbox', { name: 'Item name' })).toHaveAttribute('maxlength', '180');
+  expect(description).toHaveAccessibleDescription('0 / 2000 characters. 2000 remaining.');
+  const text = 'Visible item only; operation is unknown. '.repeat(8);
+  await user.click(description);
+  await user.paste(text);
+  expect(description).toHaveValue(text);
+  expect(description).toHaveAccessibleDescription(`${text.length} / 2000 characters. ${2000 - text.length} remaining.`);
+  await user.click(screen.getByRole('button', { name: 'Save correction' }));
+  expect(journey.edit).toHaveBeenCalledWith(expect.objectContaining({ description: text }));
+});
+
+it('shows zero remaining at the description limit and restores the count after deletion', async () => {
+  const user = userEvent.setup();
+  showJourney(true);
+  await user.click(screen.getByRole('button', { name: 'Edit name and description' }));
+  const description = screen.getByRole('textbox', { name: 'Description' });
+  await user.click(description);
+  await user.paste('a'.repeat(2000));
+  await user.keyboard('b');
+  expect(description).toHaveValue('a'.repeat(2000));
+  expect(description).toHaveAccessibleDescription('2000 / 2000 characters. 0 remaining.');
+  await user.keyboard('{Backspace}');
+  expect(description).toHaveAccessibleDescription('1999 / 2000 characters. 1 remaining.');
 });
 
 it('offers starting another item separately from opening the submitted items', () => {

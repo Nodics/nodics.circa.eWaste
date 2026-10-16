@@ -17,6 +17,7 @@ import {
   Plus,
   Recycle,
   ShieldCheck,
+  ShoppingBag,
   UserRound,
 } from "lucide-react";
 import {
@@ -35,11 +36,18 @@ import { MobileSubmissionJourney } from "./MobileSubmissionJourney";
 import { MobileHeader, MobileNotice } from "./MobilePrimitives";
 import "./mobile.css";
 import { MobileCentres } from "./MobileCentres";
+import { MobileCatalogue } from "./MobileCatalogue";
+import {
+  catalogueHref,
+  emptyCatalogueQuery,
+  readMobileCatalogue,
+} from "../features/catalogue/catalogueNavigation";
 
-type Tab = "home" | "centres" | "submissions" | "account";
+type Tab = "home" | "centres" | "shop" | "submissions" | "account";
 const tabs = [
   { code: "home", label: "Home", icon: Home },
   { code: "centres", label: "Centres", icon: MapPin },
+  { code: "shop", label: "Shop", icon: ShoppingBag },
   { code: "submissions", label: "Items", icon: ClipboardList },
   { code: "account", label: "Account", icon: UserRound },
 ] as const;
@@ -74,13 +82,15 @@ export function MobileApp({
     new URL(window.location.href).searchParams.get("view") || "",
   );
   const requestedAccount = readAccountSection(true);
+  const requestedShop = readMobileCatalogue();
+  const [catalogueRoute, setCatalogueRoute] = useState(requestedShop || { kind: "ASSET" as const, code: null });
   const accountOverview = new URL(window.location.href).searchParams.get("account") === "overview";
   const [tab, setTab] = useState<Tab>(
       requestedSelection || requestedCollection
         ? session
           ? "submissions"
           : "account"
-        : requestedAccount || accountOverview ? "account" : "home",
+        : requestedAccount || accountOverview ? "account" : requestedShop ? "shop" : new URL(window.location.href).searchParams.get("tab") === "centres" ? "centres" : "home",
     ),
     [flow, setFlow] = useState<{ code?: string } | null>(null);
   const [accountSection, setAccountSection] = useState<AccountDetailSection | null>(requestedSelection ? null : requestedAccount);
@@ -89,6 +99,7 @@ export function MobileApp({
   );
   const [updatesOpen, setUpdatesOpen] = useState(false);
   const [signInToSubmit, setSignInToSubmit] = useState(false);
+  const [returnToShop, setReturnToShop] = useState(false);
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [sessionNotice, setSessionNotice] = useState("");
   const [account, setAccount] = useState<Account | null>(null),
@@ -98,6 +109,8 @@ export function MobileApp({
   const [signingOut, setSigningOut] = useState(false),
     [logoutError, setLogoutError] = useState("");
   const content = useRef<HTMLDivElement>(null);
+  const activeTab = useRef(tab);
+  activeTab.current = tab;
   const onLogoutRef = useRef(onLogout);
   const [scrolled, setScrolled] = useState(false);
   const cms = usePublishedPage("/", 0);
@@ -127,7 +140,8 @@ export function MobileApp({
         if (isCustomerIdentityError(cause)) {
           setSessionInvalid(true);
           setFlow(null);
-          setSignInToSubmit(true);
+          setSignInToSubmit(activeTab.current !== "shop");
+          setReturnToShop(activeTab.current === "shop");
           setTab("account");
           setSessionNotice("Sign in again to continue. Your previous session could not be confirmed.");
           void endSession()
@@ -165,38 +179,69 @@ export function MobileApp({
   useEffect(() => {
     if (content.current) content.current.scrollTop = 0;
     setScrolled(false);
-  }, [tab, flow, accountSection]);
+  }, [tab, flow, accountSection, catalogueRoute]);
+  const navigateShop = useCallback((href: string) => {
+    history.pushState({}, "", href);
+    setCatalogueRoute(readMobileCatalogue() || { kind: "ASSET", code: null });
+    setAccountSection(null);
+    setInitialTarget(undefined);
+    setSignInToSubmit(false);
+    setReturnToShop(false);
+    setTab("shop");
+    if (content.current) content.current.scrollTop = 0;
+  }, []);
   const navigateAccount = useCallback((section: AccountSection | "overview") => {
     history.pushState({}, "", accountHref(section, true));
     setAccountSection(section === "items" || section === "overview" ? null : section);
     setInitialTarget(undefined);
+    setReturnToShop(false);
     setTab(section === "items" ? "submissions" : "account");
   }, []);
   const backToAccount = useCallback(() => navigateAccount("overview"), [navigateAccount]);
+  const navigateUpdate = useCallback((href: string) => {
+    history.pushState({}, "", href);
+    setInitialTarget(readWasteSelection(true) || undefined);
+    setAccountSection(null);
+    setReturnToShop(false);
+    setTab("submissions");
+    // Existing item workspaces observe the same navigation without remounting the host.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, []);
   useEffect(() => {
     const pop = () => {
       const selected = readAccountSection(true);
+      const shop = readMobileCatalogue();
+      setInitialTarget(readWasteSelection(true) || undefined);
       setAccountSection(selected);
       if (selected || new URL(window.location.href).searchParams.get("account") === "overview") setTab("account");
+      else if (shop) { setCatalogueRoute(shop); setTab("shop"); }
       else if (readWasteSelection(true) || new URL(window.location.href).searchParams.has("view")) setTab("submissions");
+      else if (new URL(window.location.href).searchParams.get("tab") === "centres") setTab("centres");
       else setTab("home");
     };
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
   }, []);
-  const home = useCallback(() => {
+  const navigatePublic = useCallback((destination: "home" | "centres") => {
     const url = new URL(window.location.href);
-    url.searchParams.delete("account");
-    history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    for (const key of [
+      "account", "shop", "product", "view", "asset", "submission", "tab",
+      "status", "categoryCode", "itemTypeCode", "dateFrom", "dateTo", "limit",
+      ...Object.keys(emptyCatalogueQuery),
+    ]) url.searchParams.delete(key);
+    if (destination === "centres") url.searchParams.set("tab", "centres");
+    history.pushState({}, "", url.pathname + url.search + url.hash);
     setAccountSection(null);
-    setTab("home");
+    setTab(destination);
     setSignInToSubmit(false);
+    setReturnToShop(false);
     setSessionNotice("");
     if (content.current) content.current.scrollTop = 0;
     setScrolled(false);
   }, []);
+  const home = useCallback(() => navigatePublic("home"), [navigatePublic]);
   useEffect(() => {
-    if (!updatesOpen && !flow && tab !== "home" && tab !== "submissions")
+    if (!updatesOpen && !flow && tab !== "home" && tab !== "submissions" && tab !== "shop")
       return host.bindBack?.(accountSection && session ? backToAccount : home);
   }, [host, flow, tab, home, updatesOpen, accountSection, session, backToAccount]);
   const beginSubmission = (customer: Session) => {
@@ -243,6 +288,7 @@ export function MobileApp({
               mobile
               host={host}
               onToggle={setUpdatesOpen}
+              onNavigate={navigateUpdate}
             />
           ) : undefined
         }
@@ -323,13 +369,13 @@ export function MobileApp({
             )}
             <div className="mobile-section-heading">
               <h2>Close by. Easy to do.</h2>
-              <button className="mobile-text" onClick={() => setTab("centres")}>
+              <button className="mobile-text" onClick={() => navigatePublic("centres")}>
                 Find centres <ArrowRight size={16} />
               </button>
             </div>
             <button
               className="mobile-discovery"
-              onClick={() => setTab("centres")}
+              onClick={() => navigatePublic("centres")}
             >
               <span className="mobile-icon-tile">
                 <MapPin size={23} />
@@ -373,6 +419,19 @@ export function MobileApp({
         )}
         {tab === "centres" && (
           <MobileCentres experience={experience} host={host} onStart={start} />
+        )}
+        {tab === "shop" && (
+          <MobileCatalogue
+            route={catalogueRoute}
+            session={sessionInvalid ? null : session}
+            experience={experience}
+            host={updatesOpen ? undefined : host}
+            onNavigate={navigateShop}
+            onAccount={() => navigateAccount("purchases")}
+            onHome={home}
+            onLogin={onLogin}
+            onComplete={refresh}
+          />
         )}
         {tab === "submissions" && (
           <>
@@ -428,6 +487,9 @@ export function MobileApp({
                     if (signInToSubmit) {
                       beginSubmission(value);
                       setSignInToSubmit(false);
+                    } else if (returnToShop) {
+                      setReturnToShop(false);
+                      setTab("shop");
                     } else
                       setTab(
                         accountSection || accountOverview ? "account" : initialTarget || requestedCollection
@@ -497,13 +559,8 @@ export function MobileApp({
             onClick={() => {
               if (code === "account") navigateAccount("overview");
               else if (code === "submissions") navigateAccount("items");
-              else {
-                const url = new URL(window.location.href);
-                url.searchParams.delete("account");
-                history.replaceState(history.state, "", url.pathname + url.search + url.hash);
-                setAccountSection(null);
-                setTab(code);
-              }
+              else if (code === "shop") navigateShop(catalogueHref(catalogueRoute.kind));
+              else navigatePublic(code);
               setSignInToSubmit(false);
             }}
           >

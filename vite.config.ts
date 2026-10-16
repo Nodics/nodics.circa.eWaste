@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       allowedHosts: [".trycloudflare.com"],
       proxy: {
+        "/nodics/engagement": {
+          target: env.VITE_CIRCA_ENGAGEMENT_TARGET ?? "http://127.0.0.1:4340",
+          changeOrigin: true,
+        },
         "/nodics/commsApi": {
           target:
             env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4340",

@@ -71,6 +71,21 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+it("sends the complete 2000-character description in the correction request without applying the name limit", async () => {
+  const { result } = renderHook(() =>
+    useSubmissionJourney({ session, open: true, host, onSubmitted: vi.fn() }),
+  );
+  await waitFor(() => expect(result.current.ready).toBe(true));
+  const description = "Photo observations only. ".repeat(100).slice(0, 2000);
+  const expectedRevision = result.current.draft!.revision;
+  await act(async () => {
+    await result.current.edit({ name: "Plug adapter", description });
+  });
+  expect(request).toHaveBeenCalledWith(
+    expect.stringMatching(/\/submissions\/d1$/), session,
+    { name: "Plug adapter", description, expectedRevision }, "PATCH",
+  );
+});
 it("a side question leaves the latest reviewed draft ready and never confirms", async () => {
   const { result } = renderHook(() =>
     useSubmissionJourney({ session, open: true, host, onSubmitted: vi.fn() }),
@@ -188,7 +203,7 @@ it("desktop accuracy recovery uses a fresh capture and keeps the saved draft/pho
   let rejectArrival = true;
   vi.mocked(request).mockImplementation(async (...args) => {
     if (args[0].endsWith("/arrival") && rejectArrival)
-      throw new ApiError("Location accuracy unavailable: technical detail", "ERR_CIRCA_POSITION_ACCURACY_REQUIRED");
+      throw new ApiError("Location accuracy unavailable: technical detail", "ERR_EWASTE_POSITION_ACCURACY_REQUIRED");
     return original(...args);
   });
   const { result } = renderHook(() => useSubmissionJourney({ session, open: true, host, maximumAccuracyMetres: 50, maximumPositionAgeMs: 60000, onSubmitted: vi.fn() }));

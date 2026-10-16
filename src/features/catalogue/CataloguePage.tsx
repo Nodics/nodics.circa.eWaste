@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowUpRight, Search, X } from "lucide-react";
 import { APP_API, request, type Offer } from "../../api";
 import { ReviewDialog } from "../../ReviewDialog";
+import type { JourneyHost } from "../../channels/journeyHost";
 import {
   ListingPagination,
   ListingPageSize,
@@ -17,6 +18,7 @@ import {
 } from "./ProductContent";
 import {
   catalogueParams,
+  catalogueHref,
   cataloguePath,
   emptyCatalogueQuery,
   productHref,
@@ -195,6 +197,11 @@ function useProduct(code: string, kind: Offer["kind"]) {
     setBusy(true);
     setError("");
     setData(null);
+    if (!code) {
+      setError("This product link is invalid. Return to the catalogue to choose a product.");
+      setBusy(false);
+      return;
+    }
     request<Offer>(
       `${APP_API}/catalogue/${encodeURIComponent(code)}?kind=${kind}`,
       null,
@@ -285,7 +292,12 @@ function QuickView({
   );
 }
 /** Shared Shop/Coupons listing with owner-backed facets and server-side pagination. */
-export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
+export function CataloguePage({ kind, mobile = false, host, onBack }: {
+  kind: Offer["kind"];
+  mobile?: boolean;
+  host?: JourneyHost;
+  onBack?: () => void;
+}) {
   const [query, setQuery] = useState(readCatalogueQuery),
     [data, setData] = useState<CatalogueListing | null>(null),
     [busy, setBusy] = useState(true),
@@ -293,6 +305,9 @@ export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
   const [revision, setRevision] = useState(0),
     [filtersOpen, setFiltersOpen] = useState(false),
     [quick, setQuick] = useState<Offer | null>(null);
+  useEffect(() => {
+    return host?.bindBack?.(filtersOpen ? () => setFiltersOpen(false) : quick ? () => setQuick(null) : onBack || (() => {}));
+  }, [host, filtersOpen, quick, onBack]);
   useEffect(() => {
     const change = () => setQuery(readCatalogueQuery());
     window.addEventListener("popstate", change);
@@ -343,7 +358,7 @@ export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
     history.replaceState(
       history.state,
       "",
-      `${cataloguePath(kind)}?${catalogueParams(next)}`,
+      mobile ? catalogueHref(kind, next) : `${cataloguePath(kind)}?${catalogueParams(next)}`,
     );
   };
   const filterKeys = [
@@ -381,7 +396,7 @@ export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
       sort: query.sort,
     });
   return (
-    <main className="container catalogue-page">
+    <main className="container catalogue-page" tabIndex={mobile ? -1 : undefined}>
       <header
         className={`catalogue-page-heading catalogue-banner-${kind.toLowerCase()}`}
       >
@@ -505,7 +520,7 @@ export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
             <CatalogueCard
               key={offer.code}
               offer={offer}
-              href={productHref(offer, query)}
+              href={productHref(offer, query, mobile)}
               onQuickView={() => setQuick(offer)}
             />
           ))}
@@ -556,7 +571,7 @@ export function CataloguePage({ kind }: { kind: Offer["kind"] }) {
         <QuickView
           code={quick.code}
           kind={kind}
-          href={productHref(quick, query)}
+          href={productHref(quick, query, mobile)}
           onClose={() => setQuick(null)}
         />
       )}
@@ -568,15 +583,24 @@ export function CatalogueProductPage({
   code,
   kind,
   renderPurchase,
+  mobile = false,
+  host,
+  onBack,
 }: {
   code: string;
   kind: Offer["kind"];
   renderPurchase: (offer: Offer) => ReactNode;
+  mobile?: boolean;
+  host?: JourneyHost;
+  onBack?: () => void;
 }) {
   const { data, busy, error, retry } = useProduct(code, kind);
-  const backHref = `${cataloguePath(kind)}?${catalogueParams(readCatalogueQuery())}`;
+  const backHref = mobile ? catalogueHref(kind, readCatalogueQuery()) : `${cataloguePath(kind)}?${catalogueParams(readCatalogueQuery())}`;
+  useEffect(() => {
+    if (!data || busy) return host?.bindBack?.(onBack || (() => {}));
+  }, [data, busy, host, onBack]);
   return (
-    <main className="container catalogue-product-page">
+    <main className="container catalogue-product-page" tabIndex={mobile ? -1 : undefined}>
       <a className="back-link" href={backHref}>
         <ArrowLeft size={17} />
         Back to {kind === "ASSET" ? "assets" : "coupons"}

@@ -3,7 +3,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {TelegramShell} from './TelegramShell';
 const enter=vi.hoisted(()=>vi.fn(async()=>({loginId:'customer',token:'token'})));
 vi.mock('./channelAuthentication',()=>({enterChannel:enter,linkChannel:vi.fn()}));
-vi.mock('../api',()=>({APP_API:'/nodics/circa.ewaste/v0',request:vi.fn(async()=>({presentation:{sampleMode:true}})),saveSession:vi.fn(),setTelegramLaunch:vi.fn()}));
+vi.mock('../api',()=>({APP_API:'/nodics/eWaste/v0',request:vi.fn(async()=>({presentation:{sampleMode:true}})),saveSession:vi.fn(),setTelegramLaunch:vi.fn()}));
 vi.mock('./journeyHost',()=>({telegramJourneyHost:()=>({kind:'telegram'})}));
 vi.mock('../mobile/MobileLaunchScreen',()=>({MobileLaunchScreen:()=>null}));
 vi.mock('../mobile/MobileApp',()=>({MobileApp:({initialSubmissionCode}:{initialSubmissionCode:string})=><p>Notification item: {initialSubmissionCode}</p>}));

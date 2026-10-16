@@ -55,6 +55,18 @@
   padding: 0;
   margin: 0;
 }
+.account-activity .activity-list > div > svg {
+  flex-shrink: 0;
+}
+.account-activity .activity-list > div > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-activity .activity-list small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #536653;
+}
 .account-section-page h1 {
   margin: 0 0 18px;
   font-size: clamp(28px, 3vw, 40px);

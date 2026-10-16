@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CustomerAuthentication } from "./CustomerAuthentication";
 import { request } from "./api";
 vi.mock("./api", () => ({
-  APP_API: "/nodics/circa.ewaste/v0",
+  APP_API: "/nodics/eWaste/v0",
   request: vi.fn(),
   saveSession: vi.fn(),
   endSession: vi.fn(),
@@ -100,7 +100,7 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(api.mock.calls[0]).toEqual([
-      "/nodics/circa.ewaste/v0/registrations",
+      "/nodics/profile/v0/customer/registrations",
       null,
       { email: "customer@example.com", name: "Asha", password },
     ]);

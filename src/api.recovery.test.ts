@@ -38,14 +38,14 @@ it("owner validation codes survive transport handling and keep the customer corr
     new Response(
       JSON.stringify({
         success: false,
-        code: "ERR_CIRCA_ARRIVAL_REQUIRED",
+        code: "ERR_EWASTE_ARRIVAL_REQUIRED",
         message: "Check arrival again",
       }),
       { status: 400 },
     ),
   );
   await expect(request("/test")).rejects.toMatchObject({
-    code: "ERR_CIRCA_ARRIVAL_REQUIRED",
+    code: "ERR_EWASTE_ARRIVAL_REQUIRED",
     message: "Check arrival again",
   });
 });

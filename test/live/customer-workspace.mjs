@@ -1,17 +1,56 @@
 /** Read-only customer workspace acceptance against the local sample account. Commands are previewed and cancelled. */
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect as playwrightExpect } from "@playwright/test";
 import fs from "node:fs/promises";
+import { installReadOnlyGuard } from "./support/read-only-guard.mjs";
+const expect = playwrightExpect.configure({ timeout: 60000 });
 const base = process.env.CIRCA_SITE_URL || "http://localhost:3600",
   out = process.env.CIRCA_WORKSPACE_EVIDENCE || "/tmp/circa-workspace";
 await fs.mkdir(out, { recursive: true });
 const browser = await chromium.launch(),
-  page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }),
+  page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: "block" }),
   errors = [];
+const verifyReadOnly = await installReadOnlyGuard(page.context(), base);
+const observations = { submissionNotification: "NOT_EXERCISED_RETAINED_DATA" };
+let matchingSubmissionNotices = null;
+let inboxRequest = null;
+const inboxCounts = { desktop: null, mobile: null };
+const isInbox = request => request.method() === "GET" && new URL(request.url()).pathname === "/nodics/commsApi/v0/customer/communications";
+page.on("request", request => {
+  if (isInbox(request)) {
+    inboxRequest = request;
+    matchingSubmissionNotices = null;
+  }
+});
 page.on("pageerror", (error) => errors.push(error.message));
 page.on("response", async (response) => {
-  if (response.status() >= 400 && response.url().includes("/nodics/"))
-    console.log("HTTP", response.status(), new URL(response.url()).pathname);
+  if (response.status() === 200 && response.request() === inboxRequest) {
+    let messages = await response.json().catch(() => null);
+    for (let i = 0; i < 6 && messages && !Array.isArray(messages); i++) {
+      if (messages.success === false || String(messages.code || "").startsWith("ERR_")) { messages = null; break; }
+      if (messages.data !== undefined) messages = messages.data;
+      else if (messages.result !== undefined) messages = messages.result;
+      else break;
+    }
+    if (response.request() === inboxRequest && Array.isArray(messages))
+      matchingSubmissionNotices = messages.filter(message => message.source?.module === "eWaste" &&
+        message.source.type === "wasteSubmission" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,179}$/.test(message.source.code)).length;
+  }
+  if (response.status() >= 400 && response.url().includes("/nodics/")) {
+    const result = await response.json().catch(() => null);
+    const code = typeof result?.code === "string" && /^[A-Z0-9_]{1,80}$/.test(result.code) ? result.code : "UNKNOWN";
+    console.log("HTTP", response.status(), new URL(response.url()).pathname, code);
+  }
 });
+const inboxReady = async (dialog, host) => {
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => matchingSubmissionNotices !== null).toBe(true);
+  await expect(dialog.getByRole("button", { name: "Check for updates", exact: true })).toBeEnabled();
+  await expect(dialog.getByRole("status")).toHaveCount(0);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  inboxCounts[host] = matchingSubmissionNotices;
+  await expect(dialog.locator(".customer-update-item")).toHaveCount(inboxCounts[host]);
+  await expect.poll(() => dialog.locator(".customer-update,.customer-updates-empty").count()).toBeGreaterThan(0);
+};
 try {
   await page.goto(base + "/account/items");
   await page
@@ -33,23 +72,28 @@ try {
   );
   await page.screenshot({ path: out + "/listing-desktop.png", fullPage: true });
   await expect(
-    page.locator(".account-page > .waste-workspace:first-child"),
+    page.locator(".account-page > .waste-workspace"),
   ).toBeVisible();
   await expect(page.locator(".account-page > .page-heading")).toHaveCount(0);
   await expect(page.getByText("Review updates", { exact: true })).toHaveCount(
     0,
   );
   await page.screenshot({ path: out + "/banner-first.png" });
+  matchingSubmissionNotices = null;
+  inboxRequest = null;
   await page.locator(".header-actions").getByRole("link", { name: "Updates", exact: true }).focus();
   await page.keyboard.press("ArrowDown");
   const updates = page.getByRole("dialog", { name: "Your updates" });
-  await expect(updates.locator(".customer-update-item").first()).toBeVisible();
+  await inboxReady(updates, "desktop");
   await expect(updates).not.toContainText("http://localhost");
   await expect(updates).not.toContainText("WST_");
   await expect(updates).not.toContainText("Reviewer comment:");
-  await expect(
-    updates.locator(".customer-update-photo img").first(),
-  ).toBeVisible();
+  if (matchingSubmissionNotices > 0) {
+    await expect(updates.locator(".customer-update-photo img").first()).toBeVisible();
+    observations.submissionNotification = "ENRICHED_NOTIFICATION_EXERCISED";
+  } else {
+    expect(await updates.locator(".customer-update,.customer-updates-empty").count()).toBeGreaterThan(0);
+  }
   await page.screenshot({ path: out + "/updates-desktop.png" });
   await updates.getByRole("button", { name: "Close dialog" }).click();
   const firstName = await page
@@ -168,7 +212,7 @@ try {
   const searchBounds = await page
     .getByRole("searchbox", { name: "Search your items" })
     .boundingBox();
-  const labelBounds = await page.locator(".waste-search").boundingBox();
+  const labelBounds = await page.locator(".waste-toolbar .listing-search").boundingBox();
   expect(searchBounds.y + searchBounds.height).toBeLessThanOrEqual(
     labelBounds.y + labelBounds.height + 1,
   );
@@ -187,21 +231,25 @@ try {
     .getByRole("dialog", { name: "Quick view" })
     .getByRole("button", { name: "Close dialog" })
     .click();
-  await page.locator(".header-actions").getByRole("link", { name: "Updates", exact: true }).focus();
-  await page.keyboard.press("ArrowDown");
+  matchingSubmissionNotices = null;
+  inboxRequest = null;
+  await page.getByRole("button", { name: "Updates", exact: true }).click();
   const mobileUpdates = page.getByRole("dialog", { name: "Your updates" });
-  await expect(
-    mobileUpdates.locator(".customer-update-item").first(),
-  ).toBeVisible();
+  await inboxReady(mobileUpdates, "mobile");
   await expect(mobileUpdates).not.toContainText("WST_");
   await page.screenshot({ path: out + "/updates-mobile.png" });
-  await mobileUpdates
-    .getByRole("link", { name: "View item details" })
-    .first()
-    .click();
-  await expect(page.locator(".waste-detail h1")).toBeVisible();
-  await expect(page).toHaveURL(/\/mobile\?.*submission=/);
+  const updateDetail = mobileUpdates.getByRole("link", { name: "View item details" }).first();
+  if (inboxCounts.mobile > 0) {
+    await updateDetail.click();
+    await expect(page.locator(".waste-detail h1")).toBeVisible();
+    await expect(page).toHaveURL(/\/mobile\?.*submission=/);
+    observations.submissionNotification = "ENRICHED_NOTIFICATION_EXERCISED";
+  } else {
+    expect(await mobileUpdates.locator(".customer-update,.customer-updates-empty").count()).toBeGreaterThan(0);
+  }
   expect(errors).toEqual([]);
+  verifyReadOnly();
+  await fs.writeFile(out + "/result.json", JSON.stringify({ passed: true, observations, matchingSubmissionNotices, inboxCounts, businessWrites: 0 }, null, 2) + "\n");
   console.log(
     "PASS live owner listing, status and text filters, quick view, direct detail/reload, specifications/history, assets, mobile asset deep link and layout.",
   );

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { useEffect, useState } from "react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { MobileApp } from "./MobileApp";
@@ -16,6 +16,8 @@ const api = vi.hoisted(() => {
   return {
     ApiError: MockApiError,
     endSession: vi.fn(async () => undefined),
+    workspaceMounted: vi.fn(),
+    workspaceUnmounted: vi.fn(),
     request: vi.fn(async () => ({
       submissions: [],
       events: [],
@@ -29,7 +31,8 @@ const api = vi.hoisted(() => {
     })),
   };
 });
-vi.mock("../api", () => ({
+vi.mock("../api", async original => ({
+  ...(await original<typeof import("../api")>()),
   API: "/nodics/eWaste/v0",
   ApiError: api.ApiError,
   request: api.request,
@@ -54,13 +57,19 @@ vi.mock("../features/waste/CustomerWasteWorkspace", () => ({
     initialSelection?: { code: string };
     onNavigate: () => void;
     onContinue: (code: string) => void;
-  }) => (
-    <div>
-      {initialSelection && `Requested item: ${initialSelection.code}`}
-      <button onClick={onNavigate}>Back to submissions</button>
-      <button onClick={() => onContinue("SAVED_DRAFT")}>Continue saved draft</button>
-    </div>
-  ),
+  }) => {
+    useEffect(() => {
+      api.workspaceMounted();
+      return () => { api.workspaceUnmounted(); };
+    }, []);
+    return (
+      <div>
+        {initialSelection && `Requested item: ${initialSelection.code}`}
+        <button onClick={onNavigate}>Back to submissions</button>
+        <button onClick={() => onContinue("SAVED_DRAFT")}>Continue saved draft</button>
+      </div>
+    );
+  },
 }));
 vi.mock("./MobileSubmissionJourney", () => ({
   MobileSubmissionJourney: ({
@@ -83,7 +92,7 @@ vi.mock("../CustomerAuthentication", () => ({
     </button>
   ),
 }));
-afterEach(() => { cleanup(); history.replaceState({}, "", "/"); sessionStorage.clear(); api.request.mockClear(); api.endSession.mockClear(); });
+afterEach(() => { cleanup(); history.replaceState({}, "", "/"); sessionStorage.clear(); api.request.mockClear(); api.endSession.mockClear(); api.workspaceMounted.mockClear(); api.workspaceUnmounted.mockClear(); });
 const experience = { presentation: { sampleMode: true } } as Experience,
   host: JourneyHost = {
     kind: "telegram",
@@ -111,6 +120,103 @@ it("opens the notification target instead of selecting another saved draft", asy
     screen.queryByText("Requested item: WST_REVIEWED"),
   ).not.toBeInTheDocument();
 });
+
+it("opens an inbox target inside the mounted native shell without signing in again", async () => {
+  history.replaceState({}, "", "/telegram?account=wallet&tgWebAppStartParam=launch");
+  const previous = api.request.getMockImplementation();
+  const onLogin = vi.fn(), onLogout = vi.fn();
+  api.request.mockImplementation(async (...args: unknown[]) => {
+    const path = String(args[0]);
+    if (path.includes("/customer/communications")) return [{ code: "NOTICE", createdAt: "2026-10-13T07:00:00Z",
+      source: { module: "eWaste", type: "wasteSubmission", code: "WST_NOTICE" } }] as never;
+    if (path.includes("/account/items/WST_NOTICE")) return { contractVersion: 1, item: {
+      code: "WST_NOTICE", resource: "submissions", photo: null, status: { code: "REJECTED" },
+      descriptor: { identity: { name: "Reviewed keyboard" }, review: { comment: "Local test reason" } },
+    } } as never;
+    return previous!();
+  });
+  try {
+    render(<MobileApp session={{ loginId: "customer", token: "token" }} experience={experience}
+      host={host} onLogin={onLogin} onLogout={onLogout} />);
+    await userEvent.click(screen.getByRole("button", { name: "Updates" }));
+    await userEvent.click(await screen.findByRole("link", { name: "View item details" }));
+    expect(await screen.findByText("Requested item: WST_NOTICE")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Your updates" })).not.toBeInTheDocument();
+    expect(new URL(location.href).searchParams.get("tgWebAppStartParam")).toBe("launch");
+    expect(new URL(location.href).searchParams.has("account")).toBe(false);
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(onLogout).not.toHaveBeenCalled();
+    expect(api.endSession).not.toHaveBeenCalled();
+    act(() => {
+      history.replaceState({}, "", "/telegram?submission=WST_PREVIOUS&tgWebAppStartParam=launch");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByText("Requested item: WST_PREVIOUS")).toBeInTheDocument();
+    expect(screen.queryByText("Requested item: WST_NOTICE")).not.toBeInTheDocument();
+  } finally {
+    api.request.mockImplementation(previous!);
+  }
+});
+it("restores the earlier URL item after actual Back through Account unmounts and remounts the workspace", async () => {
+  history.replaceState({}, "", "/telegram?submission=WST_PREVIOUS&tgWebAppStartParam=launch#host");
+  const previous = api.request.getMockImplementation();
+  const onLogin = vi.fn(), onLogout = vi.fn();
+  api.request.mockImplementation(async (...args: unknown[]) => {
+    const path = String(args[0]);
+    if (path.includes("/customer/communications")) return [{ code: "NOTICE", createdAt: "2026-10-13T07:00:00Z",
+      source: { module: "eWaste", type: "wasteSubmission", code: "WST_NOTICE" } }] as never;
+    if (path.includes("/account/items/WST_NOTICE")) return { contractVersion: 1, item: {
+      code: "WST_NOTICE", resource: "submissions", photo: null, status: { code: "REJECTED" },
+      descriptor: { identity: { name: "Reviewed keyboard" }, review: { comment: "Local test reason" } },
+    } } as never;
+    return previous!();
+  });
+  const back = async () => {
+    await act(async () => {
+      const moved = new Promise<void>(resolve => window.addEventListener("popstate", () => resolve(), { once: true }));
+      history.back();
+      await moved;
+    });
+    expect(new URL(location.href).searchParams.get("tgWebAppStartParam")).toBe("launch");
+    expect(location.hash).toBe("#host");
+  };
+  try {
+    const user = userEvent.setup();
+    render(<MobileApp session={{ loginId: "customer", token: "token" }} experience={experience}
+      host={host} onLogin={onLogin} onLogout={onLogout} />);
+    expect(screen.getByText("Requested item: WST_PREVIOUS")).toBeInTheDocument();
+    expect(api.workspaceMounted).toHaveBeenCalledTimes(1);
+
+    await user.click(within(screen.getByRole("navigation", { name: "Main navigation" })).getByRole("button", { name: "Account" }));
+    expect(new URL(location.href).searchParams.get("account")).toBe("overview");
+    expect(api.workspaceUnmounted).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Back to submissions" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Updates" }));
+    await user.click(await screen.findByRole("link", { name: "View item details" }));
+    expect(await screen.findByText("Requested item: WST_NOTICE")).toBeInTheDocument();
+    expect(api.workspaceMounted).toHaveBeenCalledTimes(2);
+
+    await back();
+    expect(new URL(location.href).searchParams.get("account")).toBe("overview");
+    expect(screen.getByRole("button", { name: "Account", current: "page" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to submissions" })).not.toBeInTheDocument();
+    expect(api.workspaceUnmounted).toHaveBeenCalledTimes(2);
+
+    await back();
+    expect(new URL(location.href).searchParams.get("submission")).toBe("WST_PREVIOUS");
+    expect(await screen.findByText("Requested item: WST_PREVIOUS")).toBeInTheDocument();
+    expect(screen.queryByText("Requested item: WST_NOTICE")).not.toBeInTheDocument();
+    expect(api.workspaceMounted).toHaveBeenCalledTimes(3);
+    expect(api.workspaceUnmounted).toHaveBeenCalledTimes(2);
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(onLogout).not.toHaveBeenCalled();
+    expect(api.endSession).not.toHaveBeenCalled();
+  } finally {
+    api.request.mockImplementation(previous!);
+  }
+});
+
 it("preserves the requested item across shared sign-in", async () => {
   function Harness() {
     const [session, setSession] = useState<Session | null>(null);
@@ -172,7 +278,7 @@ it.each(["web", "telegram"] as const)("keeps submission reachable from every mai
   history.replaceState({}, "", kind === "telegram" ? "/telegram" : "/mobile");
   const user = userEvent.setup();
   render(<MobileApp session={{loginId:"customer",token:"token"}} experience={experience} host={{...host,kind}} onLogin={() => {}} onLogout={() => {}}/>);
-  for (const name of ["Home", "Centres", "Items", "Account"]) {
+  for (const name of ["Home", "Centres", "Shop", "Items", "Account"]) {
     await user.click(within(screen.getByRole("navigation", {name:"Main navigation"})).getByRole("button", {name}));
     expect(within(screen.getByRole("region", {name:"Recycling actions"})).getByRole("button", {name:"Submit eWaste"})).toBeEnabled();
   }

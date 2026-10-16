@@ -139,7 +139,7 @@ it("direct detail ignores list filtering and offers explicit published terms and
   await screen.findByRole("heading", { level: 1, name: "Repair credit" });
   expect(call.mock.calls).toHaveLength(1);
   expect(String(call.mock.calls[0][0])).toBe(
-    "/nodics/circa.ewaste/v0/catalogue/CPN_1?kind=COUPON",
+    "/nodics/eWaste/v0/catalogue/CPN_1?kind=COUPON",
   );
   expect(screen.getByText("Use once at the partner.")).toBeVisible();
   expect(

@@ -1,7 +1,7 @@
 /** Customer authentication and explicit Employee participation entry; Profile owns proof, credentials and customer-only issuance. */
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { APP_API, request, type Session } from "./api";
+import { request, type Session } from "./api";
 import { EmployeeCustomerParticipation } from "./EmployeeCustomerParticipation";
 
 /** Shared Web and embedded-channel authentication. Profile owns credentials and sessions; each host completes its verified channel link after successful sign-in. */
@@ -70,7 +70,7 @@ export function CustomerAuthentication({
           try {
             if (register) {
               const result = await request<{ registered?: unknown }>(
-                `${APP_API}/registrations`,
+                "/nodics/profile/v0/customer/registrations",
                 null,
                 {
                   email: loginId,

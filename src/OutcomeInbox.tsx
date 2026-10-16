@@ -10,6 +10,7 @@ import { API, request, type Session } from "./api";
 import { ReviewDialog } from "./ReviewDialog";
 import { WastePhoto, wasteName } from "./features/waste/WasteCard";
 import type { WasteDetail, WasteItem } from "./features/waste/wasteTypes";
+import { emptyWasteQuery, wasteHref } from "./features/waste/wasteNavigation";
 import type { JourneyHost } from "./channels/journeyHost";
 import "./outcomeInbox.css";
 import { HeaderPopover } from "./HeaderPopover";
@@ -26,22 +27,19 @@ function itemHref(code: string | undefined, mobile: boolean) {
     return code
       ? `/account/submissions/${encodeURIComponent(code)}`
       : "/account";
-  const url = new URL(window.location.href);
-  url.searchParams.delete("asset");
-  if (code) url.searchParams.set("submission", code);
-  else url.searchParams.delete("submission");
-  url.searchParams.set("view", "submissions");
-  return url.pathname + url.search + url.hash;
+  return wasteHref(emptyWasteQuery, code ? { resource: "submissions", code } : null, true);
 }
 /** Communication owns notifications; item names, feedback and evidence come from an independently authorized Waste read. */
 export function OutcomeInbox({
   session,
   mobile = false,
   onFollow,
+  onNavigate,
 }: {
   session: Session;
   mobile?: boolean;
   onFollow?: () => void;
+  onNavigate?: (href: string) => void;
 }) {
   const [updates, setUpdates] = useState<Update[]>([]),
     [error, setError] = useState(""),
@@ -157,7 +155,14 @@ export function OutcomeInbox({
                   <a
                     className="customer-update-link"
                     href={itemHref(item?.code, mobile)}
-                    onClick={onFollow}
+                    onClick={(event) => {
+                      if (mobile && onNavigate && event.button === 0 &&
+                        !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                        event.preventDefault();
+                        onNavigate(itemHref(item?.code, true));
+                      }
+                      onFollow?.();
+                    }}
                   >
                     {item ? "View item details" : "View your items"}
                     <ArrowUpRight size={16} />
@@ -206,11 +211,13 @@ export function CustomerUpdates({
   mobile = false,
   host,
   onToggle,
+  onNavigate,
 }: {
   session: Session;
   mobile?: boolean;
   host?: JourneyHost;
   onToggle?: (open: boolean) => void;
+  onNavigate?: (href: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => {
@@ -252,7 +259,7 @@ export function CustomerUpdates({
           onClose={close}
           className="customer-updates-dialog"
         >
-          <OutcomeInbox session={session} mobile={mobile} onFollow={close} />
+          <OutcomeInbox session={session} mobile={mobile} onFollow={close} onNavigate={onNavigate} />
         </ReviewDialog>
       )}
     </>

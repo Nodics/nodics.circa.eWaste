@@ -1,13 +1,23 @@
 /** Read-only account navigation checks; never bids, reveals coupons, or submits orders. */
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect as playwrightExpect } from "@playwright/test";
 import fs from "node:fs/promises";
+import { installReadOnlyGuard } from "./support/read-only-guard.mjs";
+const expect = playwrightExpect.configure({ timeout: 60000 });
 const base = process.env.CIRCA_SITE_URL || "http://localhost:3600";
 const output = "/tmp/circa-account-nav";
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: "block" });
+const verifyReadOnly = await installReadOnlyGuard(page.context(), base);
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
+const sectionReady = async heading => {
+  const section = page.locator(".account-section-page");
+  await expect(section).toBeVisible();
+  await expect(section.getByRole("heading", { name: heading, exact: true, level: 1 })).toBeVisible();
+  await expect(section.getByRole("status")).toHaveCount(0);
+  await expect(section.getByRole("alert")).toHaveCount(0);
+};
 try {
   await page.goto(base + "/account/items");
   await page
@@ -24,7 +34,7 @@ try {
   await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".waste-banner h1")).toBeVisible();
   await expect(
-    page.locator(".purchase-history,.account-ownership-activity"),
+    page.locator(".purchase-history,.account-activity"),
   ).toHaveCount(0);
   await page.locator(".header-actions").getByRole("link", { name: "My Account", exact: true }).focus();
   await page.keyboard.press("ArrowDown");
@@ -45,12 +55,7 @@ try {
       .getByRole("link", { name: new RegExp("^" + label) })
       .click();
     await expect(page).toHaveURL(base + "/account/" + route);
-    await expect(
-      page.getByRole("heading", { name: heading, exact: true, level: 1 }),
-    ).toBeVisible();
-    await expect(
-      page.locator(".account-section-page [role=status]"),
-    ).toHaveCount(0);
+    await sectionReady(heading);
     await expect(page.locator(".waste-workspace")).toHaveCount(0);
     await expect(page.locator(".coupon-token")).toHaveCount(0);
     await page.screenshot({
@@ -58,9 +63,7 @@ try {
       fullPage: true,
     });
     await page.reload();
-    await expect(
-      page.getByRole("heading", { name: heading, exact: true, level: 1 }),
-    ).toBeVisible();
+    await sectionReady(heading);
   }
   await page.getByRole("link", { name: "Back to dashboard" }).click();
   await expect(page.locator(".dashboard-welcome h1")).toBeVisible();
@@ -94,12 +97,7 @@ try {
       .getByRole("navigation", { name: "Dashboard shortcuts" })
       .getByRole("link", { name: new RegExp("^" + label) })
       .click();
-    await expect(
-      page.getByRole("heading", { name: heading, exact: true, level: 1 }),
-    ).toBeVisible();
-    await expect(
-      page.locator(".account-section-page [role=status]"),
-    ).toHaveCount(0);
+    await sectionReady(heading);
     expect(new URL(page.url()).searchParams.get("account")).toBe(route);
     expect(new URL(page.url()).searchParams.get("tgWebAppVersion")).toBe("8.0");
     expect(
@@ -110,9 +108,7 @@ try {
     await expect(page.locator(".coupon-token")).toHaveCount(0);
     await page.screenshot({ path: output + "/mobile-" + route + ".png" });
     await page.reload();
-    await expect(
-      page.getByRole("heading", { name: heading, exact: true, level: 1 }),
-    ).toBeVisible();
+    await sectionReady(heading);
     await page.getByRole("link", { name: "Back to dashboard" }).click();
     await expect(
       page.getByRole("navigation", { name: "Dashboard shortcuts" }),
@@ -121,23 +117,25 @@ try {
   await page.getByRole("link", { name: /^View my items/ }).click();
   await expect(page.locator(".waste-banner h1")).toBeVisible();
   await expect(
-    page.locator(".purchase-history,.account-ownership-activity"),
+    page.locator(".purchase-history,.account-activity"),
   ).toHaveCount(0);
   expect(new URL(page.url()).searchParams.has("account")).toBe(false);
-  const guest = await browser.newPage();
+  const guest = await browser.newPage({ serviceWorkers: "block" });
+  const verifyGuestReadOnly = await installReadOnlyGuard(guest.context(), base);
   await guest.goto(base + "/account/purchases");
   await expect(
     guest.getByRole("button", { name: "Sign in or register" }),
   ).toBeVisible();
   await expect(guest.locator(".purchase-history")).toHaveCount(0);
+  verifyGuestReadOnly();
   await guest.close();
   expect(errors).toEqual([]);
+  verifyReadOnly();
   console.log(
     "PASS desktop/mobile account navigation, direct-link reload, sign-in boundary, clean item listing, private coupon codes, and responsive layouts.",
   );
 } catch (error) {
   await page.screenshot({ path: output + "/failure.png", fullPage: true });
-  console.log(page.url(), await page.locator("body").innerText());
   throw error;
 } finally {
   await browser.close();

@@ -30,7 +30,7 @@ try {
   const unfinished = ["DRAFT","MEDIA_STAGED","METADATA_SUGGESTED","AWAITING_SUBMITTER_CONFIRMATION"];
   expect(before.submissions.items.every(item => !unfinished.includes(item.status.code))).toBe(true);
   expect(before.drafts.items.every(item => unfinished.includes(item.status.code))).toBe(true);
-  const experience = unwrap(await (await page.request.get(base + "/nodics/circa.ewaste/v0/experience",{headers})).json());
+  const experience = unwrap(await (await page.request.get(base + "/nodics/eWaste/v0/experience",{headers})).json());
   const centre = experience.centres.find(item => item.location?.status === "ACTIVE");
   expect(centre).toBeTruthy();
   await context.setGeolocation({ latitude:centre.location.latitude, longitude:centre.location.longitude, accuracy:5 });

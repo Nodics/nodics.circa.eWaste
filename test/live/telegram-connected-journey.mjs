@@ -16,7 +16,7 @@ fs.mkdirSync(output, { recursive: true });
 const email = `telegram.qa.${Date.now()}@circa.local`, password = 'CircaDemo!2026';
 const subject = 4000000000000000 + Date.now() % 1000000000;
 const unwrap = value => { for(let i=0;i<6&&value;i++){if(value.data!==undefined)value=value.data;else if(value.result!==undefined)value=value.result;else break;}return value; };
-const experience = unwrap(await (await fetch(base+'/nodics/circa.ewaste/v0/experience')).json());
+const experience = unwrap(await (await fetch(base+'/nodics/eWaste/v0/experience')).json());
 const configuredCentreCode = process.env.CIRCA_COLLECTION_CENTRE;
 const centre = configuredCentreCode
  ? experience.centres.find(value => value.code === configuredCentreCode)

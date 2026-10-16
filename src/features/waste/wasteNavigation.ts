@@ -94,6 +94,9 @@ export function wasteHref(
   url.searchParams.delete("submission");
   url.searchParams.delete("asset");
   url.searchParams.delete("account");
+  url.searchParams.delete("shop");
+  url.searchParams.delete("product");
+  url.searchParams.delete("tab");
   if (mobile && selection)
     url.searchParams.set(
       selection.resource === "assets" ? "asset" : "submission",

@@ -25,9 +25,10 @@ function telegramBootIssue(error: unknown): TelegramBootIssue {
   const message = error instanceof Error ? error.message : "Please reopen Circa.";
   const code = error instanceof ApiError ? error.code : undefined;
   if (
+    code === "ERR_EWASTE_CHANNEL_CONFIGURATION_REQUIRED" ||
+    code === "ERR_PROFILE_TELEGRAM_CONFIGURATION_REQUIRED" ||
     code === "TELEGRAM_CONFIGURATION_REQUIRED" ||
-    code === "UNCONFIGURED" ||
-    /TELEGRAM_CONFIGURATION_REQUIRED|UNCONFIGURED/i.test(message)
+    code === "UNCONFIGURED"
   ) {
     return {
       title: "Configuration required.",

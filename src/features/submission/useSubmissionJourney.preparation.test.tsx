@@ -151,3 +151,88 @@ it("flags an impact estimate failure as impact recovery and retries the saved dr
  expect(result.current.impactRecovery).toBe(false);
  expect(result.current.ready).toBe(true);
 });
+
+it("keeps the acknowledged photo through a failed replacement, correction and receipt", async () => {
+  let saved: Submission | null = null;
+  let preparations = 0;
+  vi.mocked(URL.createObjectURL).mockImplementation((file) => `blob:${(file as File).name}`);
+  vi.mocked(request).mockImplementation(async (path) => {
+    if (path.endsWith("/arrival")) return { ...arrival, draft: saved };
+    if (path.endsWith("/prepare")) {
+      if (++preparations > 1) throw new ApiError("Replacement failed", "ERR_WASTE_RECOGNITION_INVALID");
+      saved = { code: "saved", revision: 1, submissionStatus: "METADATA_SUGGESTED", submittedFacts: { name: "Original", itemTypeCode: "PHONE" }, metadata: { photo: { code: "PHOTO_A" } }, evidenceRefs: [{ code: "PHOTO_A" }] };
+    }
+    if (path.endsWith("/confirm")) saved = { ...saved!, submissionStatus: "SUBMITTED" };
+    return saved;
+  });
+  const { result } = show();
+  await waitFor(() => expect(result.current.busy).toBe(""));
+  await act(async () => { await result.current.upload(new File(["a"], "a.png", { type: "image/png" })); });
+  expect(result.current.preview).toBe("blob:a.png");
+  await act(async () => { await result.current.upload(new File(["b"], "b.png", { type: "image/png" })); });
+  expect(result.current.error).toBe("Replacement failed");
+  expect(result.current.preview).toBe("blob:a.png");
+  expect(result.current.draft?.metadata.photo?.code).toBe("PHOTO_A");
+  expect(result.current.ready).toBe(false);
+  await act(async () => { await result.current.edit({ name: "Corrected original" }); });
+  await act(async () => { await result.current.confirm(); });
+  expect(result.current.submitted).toBe(true);
+  expect(result.current.preview).toBe("blob:a.png");
+  expect(result.current.draft?.evidenceRefs).toEqual([{ code: "PHOTO_A" }]);
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+});
+
+it.each([false, true])("reconciles an acknowledged replacement after response loss (photo unavailable: %s)", async (unavailable) => {
+  let saved: Submission | null = null;
+  let preparations = 0;
+  vi.mocked(URL.createObjectURL).mockImplementation((file) => `blob:${(file as File).name}`);
+  vi.mocked(request).mockImplementation(async (path) => {
+    if (path.endsWith("/arrival")) return { ...arrival, draft: saved };
+    if (path.endsWith("/prepare")) {
+      const code = ++preparations === 1 ? "PHOTO_A" : "PHOTO_B";
+      saved = { code: "saved", revision: preparations, submissionStatus: "METADATA_SUGGESTED", submittedFacts: { name: "Phone", itemTypeCode: "PHONE" }, metadata: { photo: { code } }, evidenceRefs: [{ code }] };
+      if (preparations > 1) throw new Error("Response lost");
+    }
+    if (path.endsWith("/photo")) {
+      if (unavailable) throw Error("Photo unavailable");
+      return { mimeType: "image/png", contentBase64: "Yg==" };
+    }
+    return saved;
+  });
+  const { result } = show();
+  await waitFor(() => expect(result.current.busy).toBe(""));
+  await act(async () => { await result.current.upload(new File(["a"], "a.png", { type: "image/png" })); });
+  await act(async () => { await result.current.upload(new File(["b"], "b.png", { type: "image/png" })); });
+  expect(result.current.draft?.metadata.photo?.code).toBe("PHOTO_B");
+  expect(result.current.preview).toBe(unavailable ? "" : "data:image/png;base64,Yg==");
+  expect(result.current.ready).toBe(false);
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(request).mock.calls.filter(([path]) => path.endsWith("/confirm"))).toHaveLength(0);
+});
+
+it("changes the preview only after a successful replacement acknowledgement", async () => {
+  let saved: Submission | null = null;
+  let preparations = 0;
+  let acknowledge: (draft: Submission) => void = () => {};
+  vi.mocked(URL.createObjectURL).mockImplementation((file) => `blob:${(file as File).name}`);
+  vi.mocked(request).mockImplementation(async (path) => {
+    if (path.endsWith("/arrival")) return { ...arrival, draft: saved };
+    if (path.endsWith("/prepare")) {
+      const code = ++preparations === 1 ? "PHOTO_A" : "PHOTO_B";
+      const next: Submission = { code: "saved", revision: preparations, submissionStatus: "METADATA_SUGGESTED", submittedFacts: { name: "Phone", itemTypeCode: "PHONE" }, metadata: { photo: { code } }, evidenceRefs: [{ code }] };
+      if (preparations > 1) return new Promise<Submission>((resolve) => { acknowledge = (value) => { saved = value; resolve(value); }; });
+      return saved = next;
+    }
+    return saved;
+  });
+  const { result } = show();
+  await waitFor(() => expect(result.current.busy).toBe(""));
+  await act(async () => { await result.current.upload(new File(["a"], "a.png", { type: "image/png" })); });
+  let pending: Promise<unknown>;
+  act(() => { pending = result.current.upload(new File(["b"], "b.png", { type: "image/png" })); });
+  await waitFor(() => expect(preparations).toBe(2));
+  expect(result.current.preview).toBe("blob:a.png");
+  await act(async () => { acknowledge({ ...saved!, revision: 2, metadata: { photo: { code: "PHOTO_B" } }, evidenceRefs: [{ code: "PHOTO_B" }] }); await pending!; });
+  expect(result.current.preview).toBe("blob:b.png");
+  expect(result.current.draft?.metadata.photo?.code).toBe("PHOTO_B");
+});

@@ -10,7 +10,10 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "verify": "npm run typecheck && npm run test && npm run build",
-    "test:live": "node test/live/customer-journey.mjs"
+    "test:live": "node test/live/customer-journey.mjs",
+    "test:live:read-only-guard": "node --test test/live/support/read-only-guard.contract.mjs",
+    "test:live:mobile-catalogue-contract": "node test/live/mobile-catalogue-contract.mjs",
+    "test:live:retained-data": "npm run test:live:read-only-guard && node test/live/retained-data-closeout.mjs"
   },
   "dependencies": {
     "@nodics/location-map-ui": "file:vendor/nodics-location-map-ui-0.0.1.tgz",

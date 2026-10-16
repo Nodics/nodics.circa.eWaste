@@ -106,6 +106,9 @@ export function accountHref(
     return section === "overview" ? "/account" : `/account/${section}`;
   const url = new URL(window.location.href);
   for (const key of [
+    "shop",
+    "product",
+    "tab",
     "view",
     "submission",
     "asset",
@@ -302,20 +305,58 @@ export function AccountSectionPage({
           <h1>Ownership activity</h1>
           <p>Follow the recorded changes in ownership of your assets.</p>
           {current.account?.events.length ? (
-            <div className="activity-list">
-              {current.account.events.map((event) => (
-                <div key={event.code}>
-                  <ArrowLeftRight size={20} />
-                  <span>
-                    {event.eventType
-                      ? event.eventType
-                          .replaceAll("_", " ")
-                          .toLowerCase()
-                          .replace(/^./, (value) => value.toUpperCase())
-                      : "Ownership recorded"}
-                  </span>
-                </div>
-              ))}
+            <div
+              className="activity-list"
+              role="list"
+              aria-label="Ownership events"
+            >
+              {current.account.events.map((event) => {
+                const asset = current.account?.assets.find(
+                  (item) => item.code === event.assetCode,
+                );
+                const recordedAt = event.occurredAt
+                  ? new Date(event.occurredAt)
+                  : null;
+                const validDate =
+                  recordedAt && Number.isFinite(recordedAt.getTime());
+                return (
+                  <div key={event.code} role="listitem">
+                    <ArrowLeftRight size={20} aria-hidden="true" />
+                    <span>
+                      <strong>
+                        {event.transferType
+                          ? event.transferType
+                              .replaceAll("_", " ")
+                              .toLowerCase()
+                              .replace(/^./, (value) => value.toUpperCase())
+                          : "Ownership event"}
+                      </strong>
+                      <small>
+                        {asset?.metadata?.facts?.name ||
+                          event.assetCode ||
+                          "Asset not specified"}
+                      </small>
+                      <small>
+                        {event.transferStatus
+                          ? event.transferStatus
+                              .replaceAll("_", " ")
+                              .toLowerCase()
+                              .replace(/^./, (value) => value.toUpperCase())
+                          : "Status not established"}
+                        {validDate && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <time dateTime={recordedAt.toISOString()}>
+                              {recordedAt.toLocaleString()}
+                            </time>
+                          </>
+                        )}
+                      </small>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="account-section-empty">

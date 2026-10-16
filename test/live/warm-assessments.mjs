@@ -48,7 +48,7 @@ try {
     .click();
   await page.getByRole("button", { name: "Log out" }).waitFor();
   const experience = unwrap(
-    await (await fetch(base + "/nodics/circa.ewaste/v0/experience")).json(),
+    await (await fetch(base + "/nodics/eWaste/v0/experience")).json(),
   );
   const centre = experience.centres.find((c) => c.code === "cc-dxb-01");
   await page.context().grantPermissions(["geolocation"]);

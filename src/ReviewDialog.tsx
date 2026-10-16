@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 /** Native modal review with focus containment and explicit cancellation; callers keep it open while a command is pending. */
 export function ReviewDialog({
@@ -13,11 +13,14 @@ export function ReviewDialog({
   className?: string;
 }) {
   const host = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
+  const opener = useRef(document.activeElement);
+  useLayoutEffect(() => {
     const d = host.current;
     d?.showModal();
     return () => {
       d?.close();
+      if (opener.current instanceof HTMLElement && opener.current.isConnected)
+        opener.current.focus({ preventScroll: true });
     };
   }, []);
   return (

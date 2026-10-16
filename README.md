@@ -166,7 +166,7 @@ filtering, mobile layout and directions-coordinate validation.
 
 Reusable domain APIs are provided by the single eWaste accelerator at
 `/nodics/eWaste/v0`. Circa public composition, registration and contact adapters
-are provided by the customer backend at `/nodics/circa.ewaste/v0`. Keep those
+are provided by the customer backend at `/nodics/eWaste/v0`. Keep those
 boundaries explicit in api.ts; the frontend application name is unchanged.
 
 ## Submission acceptance
@@ -296,6 +296,10 @@ Trade/gift dialogs retain explicit confirmation, displayed revision and command
 idempotency. Their availability is supplied by the backend and revalidated by the
 owning command. Quick view is read-only. Missing evidence stays visibly missing;
 private photos show a loading state until the authorized media read completes.
+Cancelling an unsubmitted trade/gift review preserves the loaded detail and
+keyboard opener without another read. Dismissing an attempted command rereads
+the owner even after a failed response, because the write may already have applied.
+`src/features/waste/WasteDetail.test.tsx` protects both boundaries.
 
 Run `npm run verify` and `node test/live/customer-workspace.mjs`. The latter uses
 the documented local sample customer, exercises listing/detail/reload/filter and
@@ -341,3 +345,41 @@ prospective input mass into completed diversion or carbon into energy/credits.
 INPUT_ONLY assessments show available input mass/count and the backend limitation without claiming emissions savings or a landfill comparison. All channels use the same owner-calculated assessment contract.
 
 Mobile centre discovery refreshes from the backend on each screen mount and visible-page resume (visibility, focus and pageshow). Concurrent refreshes are coalesced and aborted on exit. Search/filter state and the last successful list survive refresh failures; submission arrival and centre eligibility remain fresh backend checks.
+
+## Retained-Data Browser Acceptance
+
+`npm run test:live:mobile-catalogue-contract` checks the two mobile hosts against
+isolated owner fixtures at 320, 390, 768 and 1440 pixels. All owner requests are
+terminated by the fixture; artwork is read from the existing module `/data` pack.
+It is deliberately distinct from the native retained-data runner below.
+
+With the existing native backend and this frontend running, execute
+`npm run test:live:retained-data`. `CIRCA_SITE_URL` selects a loopback HTTP origin;
+the default is `http://localhost:3600`. This batch runs published CMS, catalogue,
+account navigation/dashboard and customer item workspace checks across desktop
+and narrow Web/mobile shells. It expects the existing published sample content,
+catalogue and documented local customer account. It does not install missing data.
+Functional assertions allow the owner's request deadline, not a performance SLA.
+Pagination and submission-notification enrichment are reported as not exercised
+when the retained dataset cannot supply them. An insufficient reward balance is
+verified as a refusal, never replenished by this runner. Isolated frontend tests
+cover these alternate states separately; they do not certify native ownership.
+
+Each scenario blocks business writes before dispatch. Only same-origin Customer
+authentication, session restore and logout POSTs are permitted. Purchases, coupon
+reveal, submissions, gift/trade, refund, inbox mutations and provider sends are not
+allowed. The guard contract has its own executable security checks. A blocked
+command fails acceptance rather than silently qualifying the attempted journey.
+
+The bounded result is written to `/tmp/circa-retained-data-closeout/result.json`
+(`CIRCA_CLOSEOUT_EVIDENCE` overrides that directory). Screenshots remain in each
+scenario's existing local evidence directory and may contain sample account data;
+do not publish them as public assets. The batch does not print authenticated page
+bodies or child assertion output. Failed stages stay failed and can be inspected
+locally using their named script; do not reset/reimport data to conceal a failure.
+The report pins HEAD, the tracked diff and untracked source hashes before/after
+execution; changing source mid-run cannot produce a passing batch.
+
+This is retained-data browser acceptance, not actual Telegram client/device,
+external SMTP/Telegram/Mapbox, real-payment or human screen-reader qualification.
+It does not replay the completed native financial demo or qualify deferred scope.

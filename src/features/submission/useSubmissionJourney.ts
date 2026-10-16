@@ -92,6 +92,20 @@ export function useSubmissionJourney({
     setDraft(d);
     if (storage) sessionStorage.setItem(storage, d.code);
   }
+  async function restorePhoto(d: Submission, active: () => boolean) {
+    setPreview("");
+    if (!d.metadata.photo?.code) return;
+    try {
+      const photo = await request<{ mimeType: string; contentBase64: string }>(
+        `${API}/submissions/${encodeURIComponent(d.code)}/photo`, session,
+      );
+      if (active() && /^image\/(jpeg|png|webp)$/.test(photo.mimeType))
+        setPreview(`data:${photo.mimeType};base64,${photo.contentBase64}`);
+    } catch {
+      if (active())
+        setError("Your saved photo is temporarily unavailable. The draft is retained.");
+    }
+  }
   async function run(
     label: string,
     action: (active: () => boolean) => Promise<void>,
@@ -117,11 +131,11 @@ export function useSubmissionJourney({
         setUnsupportedItem(e instanceof ApiError && e.code === "ERR_WASTE_ITEM_UNSUPPORTED");
         setImpactRecovery(e instanceof ApiError && e.code === "ERR_WASTE_IMPACT_INPUT_INVALID");
         const locationMessages: Record<string, string> = {
-          ERR_CIRCA_POSITION_INVALID: "We couldn’t get a usable location. Check location again. Your progress is saved.",
-          ERR_CIRCA_POSITION_STALE: "Your location reading has expired. Check location again to continue. Your progress is saved.",
-          ERR_CIRCA_POSITION_ACCURACY_REQUIRED: "This device isn’t reporting location accuracy. Enable location access for your browser or Telegram in device settings, then check again at the centre. You can still browse collection centres. Your progress is saved.",
-          ERR_CIRCA_POSITION_IMPRECISE: "Your location is still too approximate to confirm arrival. Check device location settings and try again at the centre. You can still browse collection centres. Your progress is saved.",
-          ERR_CIRCA_ARRIVAL_REQUIRED: "Check your location at the collection centre before continuing. Your progress is saved.",
+          ERR_EWASTE_POSITION_INVALID: "We couldn’t get a usable location. Check location again. Your progress is saved.",
+          ERR_EWASTE_POSITION_STALE: "Your location reading has expired. Check location again to continue. Your progress is saved.",
+          ERR_EWASTE_POSITION_ACCURACY_REQUIRED: "This device isn’t reporting location accuracy. Enable location access for your browser or Telegram in device settings, then check again at the centre. You can still browse collection centres. Your progress is saved.",
+          ERR_EWASTE_POSITION_IMPRECISE: "Your location is still too approximate to confirm arrival. Check device location settings and try again at the centre. You can still browse collection centres. Your progress is saved.",
+          ERR_EWASTE_ARRIVAL_REQUIRED: "Check your location at the collection centre before continuing. Your progress is saved.",
         };
         const locationMessage = e instanceof ApiError ? locationMessages[e.code || ""] : undefined;
         setError(locationMessage ? current.current ? locationMessage : locationMessage.replace("Your progress is saved.", "Nothing has been submitted.") : (e instanceof Error ? e.message : "Please retry."));
@@ -139,7 +153,11 @@ export function useSubmissionJourney({
               `${API}/submissions/${current.current.code}`,
               session,
             );
-            if (active()) apply(latest);
+            if (active()) {
+              const photoChanged = latest.metadata.photo?.code !== current.current?.metadata.photo?.code;
+              apply(latest);
+              if (photoChanged) await restorePhoto(latest, active);
+            }
           } catch {
             /* Preserve the current draft and explicit retry controls. */
           }
@@ -227,23 +245,8 @@ export function useSubmissionJourney({
         if (!active()) return;
         apply(d);
         setMessages(d.metadata.conversation || []);
-        if (d.metadata.photo?.code) {
-          try {
-            const photo = await request<{
-              mimeType: string;
-              contentBase64: string;
-            }>(`${API}/submissions/${d.code}/photo`, session);
-            if (active() && /^image\/(jpeg|png|webp)$/.test(photo.mimeType))
-              setPreview(
-                `data:${photo.mimeType};base64,${photo.contentBase64}`,
-              );
-          } catch {
-            if (active())
-              setError(
-                "Your saved photo is temporarily unavailable. The draft is retained.",
-              );
-          }
-        }
+        if (d.metadata.photo?.code) await restorePhoto(d, active);
+        if (!active()) return;
         if (!editable(d)) return;
       }
       let result: LocationPermission;
@@ -347,7 +350,6 @@ export function useSubmissionJourney({
       if (!active()) return;
       if (pendingPhoto.current !== file) createKey.current = commandKey();
       pendingPhoto.current = file;
-      setPreview(URL.createObjectURL(file));
       setReady(false);
       const contentBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -367,6 +369,7 @@ export function useSubmissionJourney({
       );
       if (!active()) return;
       apply(d);
+      setPreview(URL.createObjectURL(file));
       pendingPhoto.current = null;
       setReady(Boolean(d.evidenceRefs?.length && d.submittedFacts.itemTypeCode && d.submittedFacts.name));
       say("Your photo and details are saved. Check them before submitting for review.");
@@ -419,7 +422,7 @@ export function useSubmissionJourney({
         const result = await request<{
           message: string;
           conversationCode: string;
-        }>("/nodics/circa.ewaste/v0/customer/guidance", session, {
+        }>("/nodics/eWaste/v0/customer/guidance", session, {
           message: text,
           conversationCode:
             sessionStorage.getItem(storage + ".conversation") || undefined,

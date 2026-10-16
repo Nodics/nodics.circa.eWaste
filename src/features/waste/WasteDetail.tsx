@@ -95,7 +95,7 @@ function WasteActionDialog({
   session: Session;
   copy: WasteCopy;
   endpoint: string;
-  onClose: () => void;
+  onClose: (commandAttempted: boolean) => void;
   onComplete: () => void;
 }) {
   const [price, setPrice] = useState(String(action.command?.rewardPrice || "")),
@@ -104,12 +104,14 @@ function WasteActionDialog({
     [error, setError] = useState(""),
     [result, setResult] = useState("");
   const key = useRef(action.command?.idempotencyKey || commandKey());
+  const commandAttempted = useRef(false);
   const listing = action.code === "LIST";
+  const close = () => onClose(commandAttempted.current);
   return (
     <ReviewDialog
       title={action.label}
       onClose={() => {
-        if (!busy) onClose();
+        if (!busy) close();
       }}
       className="waste-action-dialog"
     >
@@ -131,7 +133,7 @@ function WasteActionDialog({
             <Check size={20} />
             {result}
           </p>
-          <button className="waste-primary" onClick={onClose}>
+          <button className="waste-primary" onClick={close}>
             {copy("done", "Done")}
           </button>
         </>
@@ -142,6 +144,8 @@ function WasteActionDialog({
             if (busy) return;
             setBusy(true);
             setError("");
+            // Failed responses can follow an applied write; dismissal must reread it.
+            commandAttempted.current = true;
             try {
               const result = await request<{ message?: string }>(
                 `${endpoint}/assets/${encodeURIComponent(item.code)}/${listing ? "list" : "gift"}`,
@@ -217,7 +221,7 @@ function WasteActionDialog({
               type="button"
               className="waste-secondary"
               disabled={busy}
-              onClick={onClose}
+              onClick={close}
             >
               {copy("cancel", "Cancel")}
             </button>
@@ -733,9 +737,9 @@ export function WasteDetailView({
           session={session}
           copy={copy}
           endpoint={endpoint}
-          onClose={() => {
+          onClose={(commandAttempted) => {
             setAction(null);
-            refresh();
+            if (commandAttempted) refresh();
           }}
           onComplete={onChanged}
         />

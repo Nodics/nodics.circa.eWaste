@@ -25,6 +25,99 @@ with explicit confirmation. Order concern history and submission use GET/POST
 not browser-selected owner URLs. Current authenticated session accompanies reads
 and commands; identifiers select records and never confer access.
 
+## Telegram Configuration Recovery
+
+Mobile notification detail links use the mounted shell's item navigation, not a
+document reload or a second Telegram authentication attempt. Keep native launch
+parameters, clear competing account/catalogue selectors, and let the Waste owner
+authorize the selected item. Ordinary Web links and modified link clicks retain
+their normal browser behavior. `OutcomeInbox.test.tsx` and
+`mobile/MobileApp.link.test.tsx` cover this boundary; native delivery and linked
+detail acceptance require separate client evidence.
+
+Telegram entry consumes Profile's `ERR_PROFILE_TELEGRAM_CONFIGURATION_REQUIRED`
+and eWaste's mapped `ERR_EWASTE_CHANNEL_CONFIGURATION_REQUIRED` public error
+codes. Configuration refusal shows administrator guidance with no retry control
+or session admission. Generic outages, timeouts and invalid proofs keep manual
+reconnect recovery; English message text never determines configuration state.
+Neither path automatically repeats entry, linking or a business command.
+
+Customize presentation in the existing host shell, not by copying credentials
+into the frontend or changing authentication. `channels/TelegramSessionBinding.test.tsx`
+exercises the actual shared HTTP error parser and public envelope; backend owner
+tests cover the Profile-to-eWaste error mapping. Source tests do not qualify a
+native Telegram client or message delivery.
+
+## Mounted Mobile And Telegram Shop
+
+Ownership activity consumes Waste's canonical `transferType`, `assetCode`,
+`transferStatus` and `occurredAt` fields. It displays the known asset name or
+retained code, recorded status and valid timestamp without inferring completion
+or exposing the other customer's identity. Missing status remains unknown.
+`AccountSections.test.tsx` covers completed, pending, incomplete and empty history.
+
+`mobile/MobileApp` exposes Shop alongside Home, Centres, Items and Account.
+`mobile/MobileCatalogue` composes the shared `CataloguePage`,
+`CatalogueProductPage`, `TransactionPage` and `CustomerAuthentication`; it owns
+only mounted navigation and sign-in presentation. There is no separate mobile
+cart or checkout engine. The current purchase flow reviews one published offer,
+refreshes the owner wallet and sends the existing confirmed revision/idempotency
+command only after the customer confirms. Commerce/Loyalty retain financial and
+permission authority. No payment provider or configuration is enabled.
+
+`/mobile` and `/telegram` use `shop=assets|coupons` and an optional bounded
+`product` selector. Listing filters, page and layout survive product/back links;
+host launch parameters survive navigation but are never forwarded as catalogue
+query selectors. Ordinary links remain usable with keyboard and modified clicks.
+In-place navigation keeps the host mounted; account/item destinations clear shop
+selectors. A direct product link is public browsing, not authorization or a
+Telegram inbound bot intent. Signed channel entry/link still belongs to the
+existing host and owner authentication APIs.
+
+Guests sign in through the shared form and return to the same product without
+automatically reviewing or purchasing. Telegram Back dismisses filters, quick
+view, sign-in or purchase review first; pending purchase review stays open.
+Owner-denied reads, invalid/unavailable products, insufficient balance, empty
+catalogues and failed reads retain accessible error/retry or return navigation.
+Session changes discard purchase display/review and late results. The existing
+explicit purchase retry retains its command key while that product/session is
+mounted. Leaving the product or reloading loses that in-memory reference; inspect
+authoritative account history before attempting another purchase after an unknown
+outcome. This does not add durable order reconciliation or promise crash recovery.
+
+`mobile/MobileApp.catalogue.test.tsx` covers mounted Web/Telegram navigation,
+sign-in continuation, explicit confirmation, history return, native Back,
+permission denial, insufficient balance, read recovery and session isolation
+using isolated owner fixtures. `mobile/MobileApp.link.test.tsx` retains submission
+reachability across all five tabs. Run these together with the shared catalogue
+tests, then `npm run verify`. Isolated tests/builds do not qualify native Telegram
+clients, installed owner APIs or proposed inbound/outbound provider flows.
+
+`node test/live/mobile-catalogue-contract.mjs` uses an already-running loopback
+Vite server (default `http://127.0.0.1:3600`) for isolated browser acceptance at
+320, 390, 768 and 1440 pixels on both mounted entry routes. It intercepts all
+owner HTTP, including authentication, with scoped test fixtures; unknown routes
+fail closed. The parent read-only guard protects the remaining static requests.
+No business request or real authentication reaches a backend. The runner reads
+existing public artwork read-only from the Circa backend module's asset files;
+it neither imports nor changes permanent demo data. Fixture offers and balances
+exist only in the runner and are not module data or payment qualification.
+The optional Google font stylesheet is fulfilled empty locally, so screenshots
+use the application's system-font fallback without contacting that provider.
+
+Checks include image natural dimensions and nonblank canvas pixels, horizontal
+overflow inside the shell and dialogs, taps, detail/back links, filters, quick
+view, focus restoration, mocked shared sign-in, owner denial and cancelled
+purchase review with zero business writes. Telegram SDK/Back are explicit browser
+test doubles, not actual native-client proof. Screenshots and `result.json` go to
+ignored `test-results/mobile-catalogue-contract`; `CIRCA_MOBILE_CATALOGUE_EVIDENCE`
+may select another output directory. `CIRCA_SITE_URL` accepts loopback HTTP only.
+Retained-data E2E, installed providers and actual native acceptance are separate.
+This test does not change native/framework arrival-radius policies.
+The browser run also covers shared `ReviewDialog` opener restoration. Its layout
+cleanup closes the native modal and restores a still-connected opener before
+React removes the dialog; `ReviewDialog.test.tsx` retains that regression.
+
 ## Purchases And Coupons
 
 `PurchaseHistory` projects bounded display fields from owner reads. Malformed,
