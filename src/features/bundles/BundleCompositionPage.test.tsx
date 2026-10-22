@@ -90,6 +90,9 @@ const writes = () =>
 it("mounts the Customer account composer with actual context and without eWaste account or marketplace reads", async () => {
   render(<AccountSectionPage section="bundles" session={session} />);
   expect(await screen.findByLabelText("Listing destination")).toHaveValue("");
+  expect(
+    await screen.findByRole("checkbox", { name: /certificate-one/ }),
+  ).not.toBeChecked();
   expect(screen.getByRole("button", { name: "Fixed price" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Gift" })).toBeEnabled();
   expect(request).toHaveBeenCalledWith(
