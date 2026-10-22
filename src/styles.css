@@ -1040,6 +1040,9 @@ footer > .footer-bottom {
   font-size: 15px;
   font-weight: 650;
 }
+body:has(.assistant-launcher) #main-content {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
 .launcher-dot {
   width: 6px;
   height: 6px;

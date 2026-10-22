@@ -1,4 +1,4 @@
-/** Customer transport; all balances, ownership and draft revisions are server-authoritative. */
+/** Participant transport; all balances, ownership and draft revisions are server-authoritative. */
 export type Facts = {
   submissionUnit?: "BUNDLE";
   name?: string;
@@ -364,8 +364,32 @@ export type Offer = {
   name: string;
   issuer?: string;
   imageUrl?: string;
-  rewardPrice: number;
+  rewardPrice: string | number;
+  commerce?: {
+    storeCode: string;
+    currency: string;
+    jurisdiction: string;
+    locale: string;
+    programCode: string;
+    rewardTypeCode: string;
+    variantCode: string;
+  };
+  acquisitionRequirements?: {
+    type: "REWARDS" | "CERTIFICATES" | "BOTH";
+    certificates?: {
+      quantity: number;
+      categoryCode?: string;
+      brandCodes?: string[];
+      modelCodes?: string[];
+      milestoneCode?: string;
+    };
+  } | null;
+  bundleRef?: { module: string; schema: string; code: string };
+  listingWindow?: { startsAt?: string; endsAt?: string };
+  ownerRef?: { module: "profile"; schema: "customer" | "enterprise"; code: string };
   biddingAvailable?: boolean;
+  biddingMode?: "AUCTION" | "NEGOTIATION";
+  auction?: { roundCode: string; storeCode: string };
   carbonUnits?: number;
   ownerCode?: string;
   kind: "ASSET" | "COUPON";
@@ -375,7 +399,12 @@ export type Offer = {
   revision: number | string;
 };
 export type Market = { assets: Offer[]; coupons: Offer[] };
-export type Session = { token: string; loginId: string };
+/** EMPLOYEE is transient personal-participation proof, never an admitted Circa session. */
+export type Session = { token: string; loginId: string; kind?: "CUSTOMER" | "EMPLOYEE" | "ENTERPRISE"; enterpriseCode?: string };
+export type EnterpriseSession = Session & { kind: "ENTERPRISE"; enterpriseCode: string };
+export function isEnterpriseSession(session?: Session | null): session is EnterpriseSession {
+  return session?.kind === "ENTERPRISE";
+}
 export const API = "/nodics/eWaste/v0";
 export const APP_API = "/nodics/eWaste/v0";
 /** Projects nested owner envelopes without discarding explicit failure evidence. */
@@ -422,18 +451,45 @@ export async function request<T>(
   session?: Session | null,
   body?: unknown,
   method = body === undefined ? "GET" : "POST",
-  options: { timeoutMs?: number; signal?: AbortSignal } = {},
+  options: { timeoutMs?: number; signal?: AbortSignal; enterpriseCode?: string } = {},
 ): Promise<T> {
+  if (session && (!path.startsWith("/") || path.startsWith("//") || path.includes("\\") ||
+      new URL(path, window.location.origin).origin !== window.location.origin ||
+      new URL(path, window.location.origin).pathname !== path.split(/[?#]/)[0]))
+    throw new ApiError("The requested service is unavailable.");
+  if (isEnterpriseSession(session) && !session.enterpriseCode)
+    throw new ApiError("Enterprise context is unavailable.");
+  const employeeBrowser = path.startsWith("/nodics/profile/v0/employee/browser/");
+  if (options.enterpriseCode !== undefined && (!employeeBrowser || session && session.enterpriseCode !== options.enterpriseCode))
+    throw new ApiError("The requested session context does not match.");
+  const enterpriseCode = session?.enterpriseCode ?? options.enterpriseCode ?? "default";
+  if (!/^[A-Za-z0-9_.:@|-]{1,200}$/.test(enterpriseCode)) throw new ApiError("Enterprise context is unavailable.");
+  if (isEnterpriseSession(session) && (/^\/nodics\/eWaste\/v0(?:[/?#]|$)/.test(path) ||
+      path.startsWith("/nodics/profile/v0/customer/") || path.includes("/customer-participation/") || /^\/nodics\/commsApi\/v0\/inbox(?:[/?#]|$)/.test(path)))
+    throw new ApiError("This action requires a personal Customer session.", "ERR_CIRCA_PERSONAL_SESSION_REQUIRED");
   const switching =
     path === "/nodics/profile/v0/employee/browser/customer-participation/switch";
   const csrf =
-    switching || path.startsWith("/nodics/profile/v0/employee/browser/")
+    switching || employeeBrowser
       ? employeeCsrf()
       : path.startsWith("/nodics/profile/v0/customer/browser/")
         ? customerCsrf()
         : "";
   if (switching && (!csrf || !session))
     throw new ApiError("The Employee browser session could not be confirmed.");
+  if (employeeBrowser && !path.endsWith("/authenticate") && !csrf)
+    throw new ApiError("The Employee browser session could not be confirmed.");
+  let idempotencyKey: string | undefined;
+  if (!["GET", "HEAD"].includes(method.toUpperCase()) && body && typeof body === "object" &&
+      !Array.isArray(body) && Object.prototype.hasOwnProperty.call(body, "idempotencyKey")) {
+    const supplied = (body as Record<string, unknown>).idempotencyKey;
+    if (typeof supplied === "string") {
+      // Header transport must not trim, encode or replace the caller's mutation identity.
+      if (!supplied || supplied.trim() !== supplied || /[^\x20-\x7e]/.test(supplied))
+        throw new ApiError("The supplied idempotency key is not safe for header transport.");
+      idempotencyKey = supplied;
+    }
+  }
   const controller = new AbortController();
   const cancel = () => controller.abort();
   options.signal?.addEventListener("abort", cancel, { once: true });
@@ -448,11 +504,13 @@ export async function request<T>(
       method,
       signal: controller.signal,
       credentials: "same-origin",
+      ...(employeeBrowser ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: {
         "Content-Type": "application/json",
-        "x-enterprise-code": "default",
+        "x-enterprise-code": enterpriseCode,
+        ...(idempotencyKey !== undefined ? { "Idempotency-Key": idempotencyKey } : {}),
         ...(csrf ? { "x-csrf-token": csrf } : {}),
-        ...(telegramLaunch
+        ...(telegramLaunch && !isEnterpriseSession(session) && !employeeBrowser
           ? { "x-ewaste-telegram-launch": telegramLaunch }
           : {}),
         ...(session ? { Authorization: `Bearer ${session.token}` } : {}),
@@ -519,7 +577,16 @@ function employeeCsrf(): string {
     .split(";")
     .map((value) => value.trim())
     .find((value) => value.startsWith(name + "="));
-  return value ? decodeURIComponent(value.slice(value.indexOf("=") + 1)) : "";
+  try { return value ? decodeURIComponent(value.slice(value.indexOf("=") + 1)) : ""; }
+  catch { return ""; }
+}
+const enterpriseHintKey = "circa.enterprise-session";
+/** An untrusted non-secret routing hint; only Profile can restore/admit the associated session. */
+export function enterpriseSessionHint(): string | null {
+  try {
+    const value: unknown = JSON.parse(sessionStorage.getItem(enterpriseHintKey) || "null");
+    return typeof value === "string" && /^[A-Za-z0-9_.:@|-]{1,200}$/.test(value) ? value : null;
+  } catch { return null; }
 }
 /** Access credentials live only in memory; discard the legacy browser-storage copy. */
 export function readSession(): Session | null {
@@ -527,13 +594,34 @@ export function readSession(): Session | null {
   return memorySession;
 }
 export function saveSession(session: Session | null) {
+  if (session?.kind === "EMPLOYEE" || isEnterpriseSession(session) && !/^[A-Za-z0-9_.:@|-]{1,200}$/.test(session.enterpriseCode || ""))
+    throw new ApiError("The session could not be confirmed.");
   sessionStorage.removeItem("circa.session");
+  if (isEnterpriseSession(session)) sessionStorage.setItem(enterpriseHintKey, JSON.stringify(session.enterpriseCode));
+  else sessionStorage.removeItem(enterpriseHintKey);
   sessionGeneration++;
-  memorySession = session;
+  memorySession = session ? Object.freeze({ ...session }) : null;
 }
 /** Deduplicates cookie rotation and discards restoration that finishes after logout or a newer login. */
-export function restoreSession(): Promise<Session | null> {
+export function restoreSession(options: { allowEnterprise?: boolean } = {}): Promise<Session | null> {
+  const enterprise = enterpriseSessionHint();
+  // Personal/mobile/channel hosts must explicitly opt into Enterprise presentation.
+  if (enterprise && !options.allowEnterprise) return Promise.resolve(null);
   if (restoringSession) return restoringSession;
+  if (enterprise) {
+    if (!employeeCsrf()) { saveSession(null); return Promise.resolve(null); }
+    const generation = sessionGeneration;
+    restoringSession = request<unknown>("/nodics/profile/v0/employee/browser/restore", null, {}, "POST", { enterpriseCode: enterprise })
+      .then(value => confirmEnterpriseSession(value, enterprise))
+      .then(value => {
+        if (generation !== sessionGeneration) return memorySession;
+        saveSession(value); return value;
+      }).catch(cause => {
+        if (generation !== sessionGeneration) return memorySession;
+        saveSession(null); throw cause;
+      }).finally(() => { restoringSession = null; });
+    return restoringSession;
+  }
   if (!customerCsrf()) return Promise.resolve(readSession());
   const generation = sessionGeneration;
   restoringSession = request<{ authToken?: string; loginId?: string }>(
@@ -557,9 +645,85 @@ export function restoreSession(): Promise<Session | null> {
 }
 /** Clears memory immediately and revokes the server-owned refresh credential. */
 export async function endSession(): Promise<void> {
+  const enterprise = isEnterpriseSession(memorySession) ? memorySession.enterpriseCode : enterpriseSessionHint();
   saveSession(null);
+  if (enterprise) {
+    if (!employeeCsrf()) throw new ApiError("Enterprise sign-out could not be confirmed. Sign in again.");
+    await request("/nodics/profile/v0/employee/browser/logout", null, {}, "POST", { enterpriseCode: enterprise });
+    return;
+  }
   if (customerCsrf())
     await request("/nodics/profile/v0/customer/browser/logout", null, {});
+}
+
+function sessionRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError("Profile session evidence could not be confirmed.");
+  return value as Record<string, unknown>;
+}
+function sessionText(value: unknown, maximum = 200): string {
+  if (typeof value !== "string" || !value.trim() || value.length > maximum || /[\u0000-\u001f\u007f]/.test(value))
+    throw new ApiError("Profile session evidence could not be confirmed.");
+  return value;
+}
+/** Verifies the issued human access token at Profile; never decodes claims or computes domain permissions in the browser. */
+async function confirmEnterpriseSession(value: unknown, enterpriseCode: string): Promise<EnterpriseSession> {
+  const auth = sessionRecord(value);
+  const token = sessionText(auth.authToken, 32768);
+  if (auth.enterpriseCode !== undefined && auth.enterpriseCode !== enterpriseCode)
+    throw new ApiError("Profile returned a different Enterprise context.");
+  const provisional: EnterpriseSession = { kind: "ENTERPRISE", token, loginId: "", enterpriseCode };
+  const scopes = sessionRecord(await request("/nodics/profile/v0/identity/scopes/me", provisional));
+  if (scopes.principalType !== "human" || !Array.isArray(scopes.scopes) || !Array.isArray(scopes.deniedScopes))
+    throw new ApiError("The current Employee scope could not be confirmed.");
+  const loginId = sessionText(scopes.principalCode, 320);
+  if (auth.loginId !== undefined && auth.loginId !== loginId)
+    throw new ApiError("Profile returned a different Employee identity.");
+  return Object.freeze({ ...provisional, loginId });
+}
+/** Fresh PASSWORD sign-in, distinct from personal Employee-to-Customer participation. */
+export async function authenticateEnterpriseSession(enterpriseCode: string, loginId: string, password: string): Promise<EnterpriseSession> {
+  sessionText(enterpriseCode); sessionText(loginId, 320);
+  if (!password || password.length > 10000) throw new ApiError("Enter your Employee credentials.");
+  const generation = ++sessionGeneration;
+  const auth = await request("/nodics/profile/v0/employee/browser/authenticate", null, { loginId, password }, "POST", { enterpriseCode });
+  const session = await confirmEnterpriseSession(auth, enterpriseCode);
+  if (generation !== sessionGeneration) throw new ApiError("This sign-in is no longer current.");
+  return session;
+}
+export type EnterpriseMembership = { code: string; revision: number; enterpriseCode: string; enterpriseName: string };
+/** Only Profile-projected, accepted SWITCH choices are rendered; no local role or invitation authority. */
+export async function enterpriseMemberships(session: EnterpriseSession, signal?: AbortSignal): Promise<EnterpriseMembership[]> {
+  const workspace = sessionRecord(await request("/nodics/profile/v0/enterprise-memberships/workspace", session, undefined, "GET", { signal }));
+  if (workspace.contractVersion !== 1 || workspace.owner !== "profile" || workspace.renderer !== "axis.enterprise-memberships" ||
+      workspace.enterpriseCode !== session.enterpriseCode || !Array.isArray(workspace.items) || workspace.items.length > 100)
+    throw new ApiError("Enterprise memberships could not be confirmed.");
+  const items = workspace.items.map(value => {
+    const row = sessionRecord(value);
+    if (!Array.isArray(row.actions) || row.actions.length > 1 || row.actions.some(action => !["ACCEPT", "SWITCH"].includes(action)) ||
+        typeof row.accepted !== "boolean" || !Number.isSafeInteger(row.revision) || Number(row.revision) < 1 ||
+        !["PENDING", "ACTIVE", "REGISTERED", "SUSPENDED", "REVOKED"].includes(String(row.status)) ||
+        row.accepted && row.status !== "REGISTERED" || row.actions.includes("SWITCH") && (!row.accepted || row.enterpriseCode === session.enterpriseCode))
+      throw new ApiError("Enterprise membership evidence could not be confirmed.");
+    return { code: sessionText(row.code, 128), revision: Number(row.revision), enterpriseCode: sessionText(row.enterpriseCode, 128),
+      enterpriseName: sessionText(row.enterpriseName, 256), switchable: row.actions.includes("SWITCH") };
+  });
+  if (new Set(items.map(row => row.code)).size !== items.length) throw new ApiError("Enterprise memberships are ambiguous.");
+  return items.filter(row => row.switchable).map(({ switchable: _, ...row }) => row);
+}
+/** Clears old local admission before one reviewed switch; uncertain issuance never retains the old signed context. */
+export async function switchEnterpriseSession(current: EnterpriseSession, selected: EnterpriseMembership): Promise<EnterpriseSession> {
+  saveSession(null);
+  const generation = sessionGeneration;
+  const choices = await enterpriseMemberships(current);
+  if (!choices.some(row => row.code === selected.code && row.revision === selected.revision && row.enterpriseCode === selected.enterpriseCode))
+    throw new ApiError("The accepted membership changed. Sign in again.");
+  if (generation !== sessionGeneration) throw new ApiError("This context switch is no longer current.");
+  const result = sessionRecord(await request("/nodics/profile/v0/employee/browser/switch-enterprise", current,
+    { assignmentCode: selected.code, revision: selected.revision }));
+  if (result.enterpriseCode !== selected.enterpriseCode) throw new ApiError("Enterprise switching could not be confirmed. Sign in again.");
+  const next = await confirmEnterpriseSession(result, selected.enterpriseCode);
+  if (next.loginId !== current.loginId || generation !== sessionGeneration) throw new ApiError("Enterprise switching could not be confirmed. Sign in again.");
+  return next;
 }
 export function commandKey(): string {
   return crypto.randomUUID();

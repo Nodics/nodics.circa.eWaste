@@ -10,6 +10,346 @@ documentation and imported content belong to the Nodics framework documentation
 owner. Do not copy import data, tenant policy or notification delivery authority
 into this frontend repository.
 
+Shared `request()` forwards an own string `body.idempotencyKey` unchanged as
+`Idempotency-Key` for non-GET/non-HEAD requests. It never generates a key, coerces
+non-string values, changes the body or replaces a retry's command identity.
+Empty, non-ASCII/control-containing and edge-whitespace strings are rejected
+before dispatch rather than silently normalized by HTTP header transport.
+Domain key format/length and replay semantics remain backend-owned.
+`api.idempotency.test.ts` covers exact forwarding, retries and read omission.
+
+## Shared Purchase And Certificate Selection
+
+### Pending Reference Helper
+
+`pendingReferences.ts` owns only tab-local recovery hints. API:
+`pendingReferenceKey(session,capability,owner?,scope?)`,
+`readPendingReference<T>(key,validate): T|null`,
+`savePendingReference<T>(key,value,validate): void`, and
+`clearPendingReference<T>(key,expected,validate): void`.
+The caller validator is `(value:unknown)=>value is T`; owner is
+`{ownerType,ownerCode}` and scope is an optional string. Keys partition actor,
+represented namespace, canonical owner when known, capability and optional offer,
+not tokens or mutable revisions. Reads/saves/clears throw on storage or schema
+failure. Save rejects a different unresolved value; clear compares the original
+expected value so a late reply cannot clear a newer command. Save must complete
+before dispatch. The helper never decides completion, permission or balance.
+Callers allowlist minimal original hints; bounded original quote input may contain
+IDs, source amount and original key, never credentials, external account mappings,
+ledger, balance or exchange-rate snapshots. Backend owners reauthorize and retain
+the authoritative instruction and receipts. Missing outcomes do not authorize
+replacement commands. Tab closure/cleared storage is not cross-device recovery.
+
+BundleComposer retains only the original manifest key; Digital's immutable
+manifest retains the reviewed follow-on instruction. Exact command query is
+read-only; explicit resume loads original owner data. BundleGifts retains only
+an operation code and reads `/digitalCore/v0/gifts/inspect`, independently of
+list pagination. Only a server-retained resumable decision may be continued;
+an undecided/absent result cannot invent a replacement decision. RewardTransfer
+retains only the original transfer key after canonical wallet-owner resolution,
+then uses Loyalty's existing exact GET status route after remount/refresh/reload.
+No restored flow automatically repeats a debit or gift. Matching terminal owner
+evidence clears each hint; resolved history does not disable legitimate new work.
+
+`TransactionPage` uses `CommercePurchase` for fixed-price purchases by Customer
+and Enterprise owners. It consumes the published offer's `commerce` binding;
+missing store, currency, locale, jurisdiction, variant or required reward-program
+references disable purchase rather than inventing project defaults. The original
+session is forwarded unchanged. The backend resolves the merchant Store separately
+from the purchasing owner and employee actor.
+
+Review creates a one-entry Cart and displays its returned calculation. Exact
+decimal strings are retained; the UI does not subtract floating-point balances or
+settle value. Confirmation calls the existing Checkout once with the reviewed Cart
+revision, calculation, order and idempotency references. An uncertain response
+offers read-only inspection of the original command and completed Order. Only a
+server-qualified recovery action with the exact reviewed Cart/Order binding offers
+explicit continuation of the original purchase. Continuation sends confirmation
+only, never another payment or replacement placement; an uncertain continuation
+requires another status read. A pending request blocks native Back; a closed uncertain
+review can be reopened. Session/offer changes invalidate late responses.
+
+Before placement, the browser retains only the original command, Cart and Order
+references in tab-scoped session storage, partitioned by acting login, owner kind,
+Enterprise and offer. Reload, token refresh and offer revisions restore a pending
+status view instead of creating a replacement purchase. No token, balance or
+certificate selection is retained. Storage failure blocks dispatch. Retained
+references never grant access: Checkout revalidates the current actor and exact
+Cart/Order binding. Only an authoritative completed receipt clears the reference;
+absence or an uncertain outcome does not permit a new purchase.
+
+Certificate-only coupons omit Wallet and Payment fields. Combined purchases send
+both the reward payment and `couponSelections[entryCode][unitIndex]`. The shared
+purchase control requires an explicit owner-projected coupon consideration type;
+missing requirements never default to a rewards-only purchase. The shared
+`CertificatePicker` reads Digital's owner-scoped paginated certificate projection;
+unavailable/consumed holdings cannot be newly selected; an already selected item
+can still be removed if it becomes unavailable. Selection is not a reservation or
+ownership claim: Digital and Waste validate and reserve on confirmed acquisition.
+The same picker is reused by bundle authoring. Auction listings use `AuctionJourney`
+and `BidComposer`, not a parallel fixed-price button.
+
+`AuctionJourney` consumes the selected callback or rereads direct-link
+`auctionRound`/`storeCode` selectors under the current session. `AuctionPurchase`
+revalidates Bidding's exact selected buyer DTO, inspects the existing one-entry
+Cart/private quote and calculates its review using the retained revision. It does
+not create/edit a Cart, ask for Wallet selectors or recheck a protected hold as
+new available balance. Account `BidHistory` mounts the same purchase component
+directly, even when the listing no longer appears in the public catalogue.
+
+The stable original key is `auction-purchase:<orderCode>`; an Order reference in
+the selected DTO is not a completed Order. Command status is read before review.
+Uncertain placement offers status only; only qualified exact Cart/Order status
+with `RESUME_ORIGINAL_PLACEMENT` enables confirmed original-command recovery.
+An uncertain recovery requires another status read. Completion requires matching
+`code`, `orderCode` and `cartCode`, not a first matching alias. Uncertain cancellation keeps
+the original cancellation key and blocks competing purchase. Existing owner
+`GET /checkouts/:orderCode` returns READY, CANCELLATION_PENDING or CANCELLED and
+the retained cancellation key, or the original placement key/status. This closes
+the unstarted cancellation gap in placement-key status lookup. Before dispatch,
+the browser stores only cancellation Cart/Order/key hints in sessionStorage,
+partitioned by acting login, owner kind, Enterprise and round. The consumer retains
+the existing auction namespace and domain validator while using `pendingReferences`
+for validated reads, verified saves and expected-reference-only clearing; a late
+reply cannot delete a changed hint. No shared business payload schema is imposed.
+Reload retains the original retry even before the request reaches the owner journal. Missing storage
+never replaces a server-retained key; failed storage blocks dispatch. Hints cannot
+authorize a release or override the current owner's status. Expired unstarted
+intake remains cancellable. Session/Enterprise/offer changes discard private state
+and late results; tokens and financial evidence are not persisted in the browser.
+`AuctionPurchase.test.tsx` and `BidsPanel.test.tsx` cover these source contracts,
+including malformed history refusal, lost acknowledgements and selected history
+without a public offer. No deployed payment or browser acceptance is inferred.
+
+`CataloguePurchase.test.tsx`, `CertificatePicker.test.tsx` and mobile catalogue
+fixtures exercise these request and state contracts. They are isolated UI tests,
+not actual payment, persistence, device or installed-runtime acceptance.
+
+## Enterprise Sessions And Account
+
+Customer and Enterprise account navigation includes `Create bundle` at
+`/account/bundles`; Customer mobile uses the same account renderer with
+`account=bundles`. `features/bundles/BundleCompositionPage` reads Digital's actual
+composition-context endpoint, retains Profile-derived ownership, and requires an
+explicit governed destination for fixed/auction listings. Gift remains selectable
+when listing dependencies are disabled/unavailable. No customer eWaste account
+read is used for this shared view. See [composer implementation](features/bundles/README.md)
+for exact owner calls, stale-session isolation and original-command recovery.
+The Enterprise wallet also mounts the shared `PartnerRewardConversion` beside
+`RewardTransfer`, retaining the original Employee token and represented Enterprise.
+
+`PartnerRewardConversion` consumes LoyaltyAPI's owner-scoped verified account
+choices and quote/confirm/status operations. It does not calculate rates, verify
+external accounts or credit a partner wallet. Confirmation sends only the retained
+conversion reference. Unknown outcomes reconcile that same reference; a manual
+reference lookup also works when new routes are disabled. The component rejects
+foreign owner projections, changed quote terms and late previous-session reads.
+No configured provider or verified link means no selectable route. Framework
+policy defaults stay in Loyalty; real account linking and provider qualification
+remain integration responsibilities, not browser-created evidence.
+
+Conversion reload recovery uses the shared `pendingReferences` helper with three
+immutable, actor/typed-owner-scoped session-storage entries: the exact original
+quote selectors/amount/idempotency key, the conversion code, and a confirmation
+attempt marker. The quote command is saved before quoting; the code and marker
+are saved before confirming. No bearer, external account locator, provider
+evidence, quoted rate or balance is stored. A lost quote response retries only
+its original command/key. A known code restores through owner `status`, including
+when new conversion choices are disabled. Restoring, uncertain and malformed
+hints never open a fresh-conversion form; unavailable storage prevents dispatch.
+
+Authoritative HOLDING, HELD, SUBMITTED, CREDIT_CONFIRMED and NO_CREDIT_CONFIRMED
+remain recovery-only even when found by manual reference. Closing the dialog
+only hides it, preserving the attempt. Only COMPLETED, REJECTED or EXPIRED clears
+an attempted conversion's exact hints. An unconfirmed QUOTED review can be closed
+without a backend mutation. If status returns QUOTED after an uncertain confirm,
+the attempted marker remains: the user may explicitly confirm that same original
+code again, never automatically or as a new conversion. Expected-value clears
+prevent late replies from removing a different operation.
+
+`PartnerRewardConversion.test.tsx` covers reload/token refresh, lost quote and
+confirm responses, manual pending-state recovery, storage failure/corruption,
+actor/owner isolation and explicit original-code retry. These are isolated UI
+units, not browser/E2E or provider acceptance. Session-storage loss, a new tab or
+another device still requires the original reference; the backend has no complete
+participant conversion-history projection. This change does not impose a backend
+commercial concurrency rule or infer pending absence from bounded wallet history.
+
+`api.ts` owns the shared transport and in-memory session. `EnterpriseSession` is
+`{kind:"ENTERPRISE", token, loginId, enterpriseCode}`: `token` remains Profile's
+Employee access token, not a Customer token or a fabricated service identity.
+The older `kind:"EMPLOYEE"` is transient proof for personal participation and
+cannot be saved as an admitted Circa session. Existing Customer session callers
+remain supported without a kind discriminator.
+
+`EnterpriseAuthentication` uses Profile's existing Employee browser PASSWORD
+contract, matching Axis's `employeeAuthClient.ts` without importing a sibling
+application. Exact calls are POST `/nodics/profile/v0/employee/browser/authenticate`
+with `{loginId,password}`, POST `/restore` with `{}`, POST `/logout` with `{}`,
+and POST `/switch-enterprise` with `{assignmentCode,revision}` under that same
+browser prefix. The `x-enterprise-code` header is the current context, including
+on switching, never the proposed target. Browser requests use same-origin
+credentials, no-store caching, redirect rejection, and the Employee CSRF companion
+(`VITE_EMPLOYEE_CSRF_COOKIE_NAME`, existing default `nodics_axis_csrf`). Restore,
+logout and switching require that companion; Customer CSRF is never substituted.
+HttpOnly refresh cookies are read/rotated/revoked only by Profile/browser transport.
+
+Before admitting an issued token, the client reads
+`GET /nodics/profile/v0/identity/scopes/me` with that exact bearer and context.
+It requires a human principal, matching issued login identity when present, and
+the owner scope projection. It never decodes JWT claims, derives role grants,
+or treats an empty or populated scope list as business eligibility. The domain
+owner still checks each command and current allow/deny scope. Profile current
+scope read exposure is consequently an admission dependency, not an optional
+browser fallback. Passwords clear immediately; access tokens remain memory-only.
+The only persisted Enterprise session value is a non-secret sessionStorage
+Enterprise-code hint (`circa.enterprise-session`). This hint routes cookie restore;
+it is not proof of identity or membership. Legacy `circa.session` is discarded.
+
+`EnterpriseSessionControls` reads
+`GET /nodics/profile/v0/enterprise-memberships/workspace`. It renders only
+Profile-projected REGISTERED/accepted SWITCH choices. After explicit review,
+the helper clears old admission, rereads the workspace and requires the same
+assignment code/revision/target before issuing one switch. The response must
+name the reviewed target and pass a new human scope read without changing actor.
+Stale generations, contradictory proof and uncertain acknowledgements require
+sign-in again; no automatic switch retry or old-owner fallback is performed.
+Logout clears local admission even if server revocation cannot be confirmed,
+and reports that uncertainty. Personal/mobile/channel hosts do not restore an
+Enterprise session unless they explicitly opt in; only the website opts in here.
+
+`EnterpriseAccount({session,path,onSwitch})` keys its children by token, Enterprise
+and path, aborting old requests and dropping owner data/selections on transitions.
+The website routes `/account` to session controls, `/wallet` and `/account/wallet`
+to Enterprise wallet, `/account/entitlements` to Digital history, `/account/bids`
+to Bidding history, `/account/gifts` to `BundleGifts` with
+`{module:"profile",schema:"enterprise",code:session.enterpriseCode}`, and
+`/account/carbon` to `CarbonHoldings`. Wallet uses only
+`GET /nodics/loyaltyApi/v0/participant/wallet`, verifies the returned Enterprise
+owner and wallet binding, preserves exact program/type/decimal evidence and
+mounts `RewardTransfer({session})` only for an existing wallet. Explicit refresh
+rereads balances; the browser never provisions a wallet or manufactures zeroes.
+
+`PurchaseHistory` is shared by Customer and Enterprise accounts and reads canonical
+`GET /nodics/order/v0/orders?limit=100` plus
+`GET /nodics/digitalCore/v0/entitlements`. `/account/purchases` also resolves to the
+Enterprise entitlement view. Enterprise entitlement `ownerRef` must be
+`{type:"ENTERPRISE",code:session.enterpriseCode}`; orders must carry matching
+`evidence.ownerRef:{module:"profile",schema:"enterprise",code}`. An entitlement's
+`enterpriseCode` is the merchant namespace, never proof of its buyer. Digital's
+owner list/reveal resolves the retained buyer across those merchant namespaces.
+Missing, foreign or Customer owner evidence fails closed, without personal fallback.
+
+Explicit coupon reveal calls only
+`POST /nodics/digitalCore/v0/entitlements/:code/reveal` with `{confirmed:true}` and
+the unchanged Employee bearer/signed Enterprise. A confirmed REVEALED token remains
+component-local; refresh, session change and late-response invalidation clear it.
+Non-coupon entitlements never offer coupon reveal. Merchant claim/redemption and
+customer-only order reviews are not mounted for Enterprise. Personal order reviews
+retain their existing component and customer authority. This increment supplies
+plain coupon-code display, not a newly invented QR payload or merchant protocol.
+
+Bidding account history uses `GET /nodics/bidding/v0/bids` and renders the
+server-authorized participant projection. Denied, malformed or mismatched reads
+show unavailability, not an empty-success fallback. Checkout is separately owned
+by the shared Commerce purchase component. Personal inbox and the submission
+assistant are not mounted for Enterprise.
+Transport additionally refuses Enterprise credentials on customer-only eWaste,
+Profile Customer/personal-participation and Customer inbox routes. Public browsing
+can still use unauthenticated public projections.
+
+Source handoff and remaining boundaries:
+
+- Digital's current `listContext` and router admit Employee reads with fresh
+  Profile Enterprise scope. This renderer consumes that implementation; it does
+  not need a new endpoint or an alternate owner parameter.
+- Negotiated Bidding's current `participantQuery` includes human sellerRefs but
+  only includes buyerId for Customer actors. Human Enterprise buyer history
+  requires backend ownership work; the browser cannot fill missing records.
+  Timed auction listing requires an actual storeCode; no all-store discovery
+  contract or business store selection is invented here.
+- Profile browser origins/cookie settings, membership exposure and current-scope
+  read, plus each domain permission/scope and backend connection, must be qualified
+  by their existing framework owners. All reusable defaults/validation remain in
+  implementing framework `config/properties.js`; selections remain governed
+  records. No business default, grant, seed, shared schema or API addition is
+  required from this frontend increment, and none was made.
+- Existing Personal `EmployeeCustomerParticipation` keeps its separate terms,
+  consent and Employee-to-Customer switch contract. Enterprise sign-in never
+  calls it. Mobile/Telegram remain personal-only entry surfaces in this increment.
+- Installed cookie behavior, deployment exposure, end-to-end grants and responsive
+  browser appearance remain unverified until the deferred live acceptance phase.
+
+Focused tests: `api.enterpriseSession.test.ts`, `EnterpriseAuthentication.test.tsx`,
+`EnterpriseAccount.test.tsx`, `CircaApp.enterpriseSession.test.tsx`. They exercise
+the real shared transport against isolated fetch fixtures, current/target header
+separation, no persisted tokens, CSRF isolation, stale restore/switch rejection,
+review, owner DTOs, routing, personal isolation and logout. Run `npm test` and
+`npx tsc --noEmit --incremental false` for source-only checks; do not infer live
+acceptance from these tests.
+
+## Carbon Holdings And Material Entitlements
+
+`CarbonHoldings.tsx` exports `CarbonHoldings({ session: Session })` for the
+parent account shell to mount. It contains separate carbon and material sections;
+`MaterialEntitlements({ session })` is also exported for a standalone placement
+(do not mount it twice alongside CarbonHoldings). Styles are isolated in
+`CarbonHoldings.css`. It does not change the wallet, navigation, shared transport
+or shared styles.
+
+The fixed read-only POST endpoints are
+`/nodics/wasteCarbon/v0/carbon/holdings` and
+`/nodics/wasteReward/v0/waste/material-value/allocations`, both on
+`wasteServer`, not loyaltyServer or a customer accelerator. The body contains
+only `{page}`; current Profile authority determines the customer or represented
+Enterprise owner. The existing `request` function supplies signed session
+transport. This renderer does not decode tokens or invent an Enterprise selector.
+The shared transport now uses the admitted Enterprise session's current header
+and original Employee bearer for the website Enterprise account. Personal
+Customer sessions retain their existing default context. This component does not
+add a second authentication client.
+
+The current Vite `/nodics` catch-all targets local Waste at 4370. Docker's Waste
+host port is 5370. Source presence does not activate wasteCarbon: the parent must
+select it in the intended Waste runtime, import existing permission definitions
+and assign `carbon.holdings.read` / `waste.materialValue.read`; represented
+Enterprise reads additionally need Profile scope access. Registry/payment
+adapter qualification is separate from module selection and read availability.
+No deployment or grants were changed by this renderer.
+
+Per-lot prospective, realized, unreserved available, reserved and nonspendable
+total quantities are displayed exactly as owner DTO strings with their units.
+Precision comes from the owner projection, without a frontend policy ceiling.
+No cross-lot/unit sum, rounding, circaCarbon reward lookup or impact-to-credit
+conversion occurs. Issuance/program, original allocation and acquisition
+references remain visible as escaped text. Synthetic records stay labelled;
+NOT_CHECKED eligibility never becomes a transferable claim. No retirement,
+trade, transfer or certification command is exposed.
+
+Incoming carbon acquisitions may be realized but reserved for bundle completion.
+The owner supplies TRANSFERRED/HELD until original-operation finalize confirms
+COMPLETED/RELEASED. The provenance view displays that distinction; it cannot
+finalize a bundle or derive available quantity from acquired quantity.
+
+Material attribution remains separate: original contributor, monetary attributed
+value and entitlement, configured reward calculation, confirmed-payment state
+and matched credit evidence are displayed without creating a spendable balance.
+CREDIT_PENDING is reconciliation uncertainty, not a new-credit button. Loyalty
+alone owns the resulting wallet entry and spendable balance. The client rejects
+malformed amounts, contradictory credit/payment flags, missing provenance and
+duplicate lot/batch identities rather than supplying zeroes or inferring success.
+
+Each section has independent empty/loading/error/retry and server pagination.
+Customer sessions admit only Customer projections; Enterprise projections must
+match the represented Enterprise. Session keys include owner kind and Enterprise
+context even when the actor and token are unchanged. These display checks do not
+replace backend authorization.
+Session changes immediately discard old owner data and abort obsolete requests;
+late responses cannot restore it. `CarbonHoldings.test.tsx` uses isolated owner
+DTOs and covers these boundaries. Run the focused Vitest tests and TypeScript
+without emission; no browser, server or end-to-end execution is required for this
+unit stage. Visual layout and installed API acceptance remain unverified.
+
 ## Ownership And Entry Points
 
 Circa renders Web/mobile/Telegram shells over the same owner-authorized journeys.
@@ -18,12 +358,16 @@ journeys; Waste owns submissions/receipts/assets; Location owns centres and arri
 Media owns evidence access; Commerce owns orders, coupons, reviews and refunds;
 Loyalty owns wallet value; Communication owns notification delivery and inbox state.
 
-Customer-owned purchase history uses GET `/nodics/eWaste/v0/purchases`.
-Coupon reveal uses the existing POST `/nodics/eWaste/v0/coupons/:code/reveal`
-with explicit confirmation. Order concern history and submission use GET/POST
-`/nodics/eWaste/v0/purchases/:code/reviews`. These are fixed composition endpoints,
+Purchase history uses GET `/nodics/order/v0/orders?limit=100` and
+`/nodics/digitalCore/v0/entitlements`. Coupon reveal uses POST
+`/nodics/digitalCore/v0/entitlements/:code/reveal` with explicit confirmation.
+Personal order concern history and submission retain GET/POST
+`/nodics/eWaste/v0/purchases/:code/reviews`. These are fixed owner endpoints,
 not browser-selected owner URLs. Current authenticated session accompanies reads
 and commands; identifiers select records and never confer access.
+The personal purchases section mounts canonical history independently of eWaste
+marketplace discovery. It applies no application order-code prefix and remains
+reachable when the public catalogue is unavailable.
 
 ## Telegram Configuration Recovery
 
@@ -122,6 +466,9 @@ React removes the dialog; `ReviewDialog.test.tsx` retains that regression.
 
 `PurchaseHistory` projects bounded display fields from owner reads. Malformed,
 duplicate or unbounded history fails closed before reveal controls appear.
+Both participant kinds use the canonical Order and Digital APIs, not the eWaste
+purchase/reveal adapter or a frontend order-code prefix filter. Enterprise typed
+buyer evidence is mandatory and independent of the merchant's storage namespace.
 Owner-supplied purchase timestamps, retained terms and expiry determine display.
 Validity is purchase-relative backend policy; the browser does not recalculate
 launch-relative validity or extend expiry. Invalid/expired validity cannot reveal
@@ -188,9 +535,9 @@ runtime activation is provided by this batch.
 
 ## Verification Boundary
 
-`src/PurchaseHistory.test.tsx` and `src/OrderReview.test.tsx` contain isolated authored
+`src/PurchaseHistory.test.tsx`, `src/EnterpriseAccount.test.tsx` and `src/OrderReview.test.tsx` contain isolated authored
 fixtures for stale/expired/malformed history, token outcomes, authoritative refresh,
-session isolation and uncertain same-input replay. Isolated automated execution
+session isolation, Enterprise-vs-merchant ownership and uncertain same-input replay. Isolated automated execution
 passed in the joint validation batch. `npm run typecheck` validates TypeScript only;
 `npm run verify` also executes behavioral suites and builds. Visual acceptance must cover
 desktop/mobile/Telegram shell integration, empty/denied states, expiry, focus refresh,

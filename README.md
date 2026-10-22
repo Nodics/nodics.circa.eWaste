@@ -28,6 +28,24 @@ then run `npm install` and `npm run dev -- --host 127.0.0.1 --port 3600` here.
 Run `npm run verify` for types, interaction checks and the production build.
 The live browser checks require the connected local sample services.
 
+The permanent local Telegram Mini App address is
+`https://telegram-circa-local.nodics.dev/telegram`. Route this hostname through
+a named Cloudflare Tunnel to `http://127.0.0.1:3600`, preserving `/telegram`
+and the `/nodics` API paths. The Vite host allowlist and Kickoff Local CORS
+configuration allow this exact hostname. DNS, the running tunnel connector,
+and the Telegram bot's launch URL must also be configured before it is live.
+The local frontend, backend services and tunnel must remain running. Keep tunnel
+credentials outside the repository and do not commit connector tokens.
+
+On the configured development Mac, the named tunnel is `circa-telegram-local`
+(`c263456c-6a1a-4a3e-b9f8-4a77d1d72033`). User LaunchAgents
+`dev.nodics.circa-telegram-tunnel` and `dev.nodics.circa-local-frontend` start
+the connector and frontend at login and restart them after an exit. Their
+configuration is under `~/Library/LaunchAgents/`; private tunnel credentials
+and service logs are under `~/.cloudflared/`. Backend startup remains the
+Kickoff topology's responsibility and can be blocked by its tenant owner-review
+gates. Website reachability alone does not qualify the connected Telegram journey.
+
 Published CMS content and public Media delivery (`/nodics/media/v0/content`) use
 `VITE_CIRCA_WCMS_ONLINE_TARGET`, defaulting to Online on port 4314. Other Media
 operations, including uploads and downloads, retain `VITE_CIRCA_MEDIA_TARGET`
@@ -36,6 +54,14 @@ on Staged port 4312. Private customer photos use authenticated eWaste resource
 Keep the public-content proxy before general Media and domain routes. Docker
 preserves the same split on Online 5314 and Staged 5312 in `docker/nginx.conf`.
 Proxy routing does not import or publish media.
+
+Shared Cart, Checkout, Digital, Bidding and Order requests route to Commerce via
+`VITE_CIRCA_COMMERCE_TARGET` (the local topology uses port 4350). The Docker
+reference routes those same module paths to port 5350. These paths must precede
+the Waste fallback; they preserve the original participant bearer and Enterprise
+header rather than changing identity to the merchant. Backend capabilities,
+permissions and qualified providers must be configured independently of this
+frontend transport setting. `proxyRouting.test.ts` protects the route boundary.
 
 ## Sample accounts
 
@@ -50,11 +76,39 @@ change. Reloading the website retains those changes.
 
 ## Connected journeys
 
+The website sign-in dialog separates **Personal** from **Enterprise**. Enterprise
+participation keeps Profile's Employee token and signed Enterprise context; it
+does not create or switch to a Customer. Its account shell reads canonical
+Loyalty wallet, Digital entitlement and Bidding projections, and reuses the typed
+bundle-gift and carbon/material views. Personal Employee-to-Customer participation
+and customer-only eWaste journeys remain separate and unchanged. Accepted
+Enterprise memberships require review and fresh Profile evidence before switching.
+See [Enterprise session contract](src/README.md#enterprise-sessions-and-account)
+for exact routes, source dependencies, storage boundaries and unit-only gates.
+This increment does not activate permissions, provider connections or live services.
+
+The wallet includes a confirmed reward-transfer journey through Loyalty's
+participant API. Eligible balances retain program/type identity and canonical
+precision; recipient search is Profile-owned and supports existing Customers
+and Enterprises. Lost acknowledgements retain the original transfer reference
+and use status inspection, not another payment. Changing session discards the
+prior private selection. Loyalty authority, program selection and installed
+permissions remain deployment prerequisites, not frontend grants.
+`VITE_CIRCA_LOYALTY_TARGET` routes local participant calls to the Loyalty runtime
+(local topology port 4360; Docker proxy port 5360). It changes transport only,
+not any business default, permission or funding setting. Renderer unit checks
+do not establish live transfer acceptance.
+
 Purchased-coupon history supports **Refresh purchases** for an authoritative
 read after merchant confirmation. It shows saved receipt, merchant reference and
 valid confirmation time without inventing store evidence or repeating purchase,
 claim, redemption or wallet commands. Failed refreshes hide token-reveal actions;
-changing customer session clears displayed history and invalidates late reveals.
+changing participant session clears displayed history and invalidates late reveals.
+Customer and Enterprise accounts share canonical Order/Digital history and Digital
+coupon reveal. Enterprise buyer proof uses typed owner references, not the merchant
+namespace; Employee bearer and signed Enterprise stay unchanged. No personal eWaste
+request or Customer conversion is used. Enterprise order-review and merchant-claim
+commands remain outside this renderer; no QR protocol is invented.
 `src/PurchaseHistory.test.tsx` contains independent refresh/session fixtures.
 The visible page refreshes every 60 seconds and on return/focus, pausing while a
 read or reveal is busy. The component's `refreshIntervalMs` presentation option

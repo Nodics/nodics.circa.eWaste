@@ -12,10 +12,13 @@ import {
 } from "./AccountSections";
 import { CircaBrand as Brand } from "./CircaBrand";
 import { CustomerAuthentication } from "./CustomerAuthentication";
+import { EnterpriseAuthentication } from "./EnterpriseAuthentication";
+import { EnterpriseAccount } from "./EnterpriseAccount";
 import { CustomerUpdates, OutcomeInbox } from "./OutcomeInbox";
 import { HeaderPopoverGroup } from "./HeaderPopover";
 import { ReviewDialog as Dialog } from "./ReviewDialog";
-import { BidComposer } from "./BidsPanel";
+import { AuctionJourney } from "./AuctionJourney";
+import { CommercePurchase } from "./CommercePurchase";
 import {
   contentText as text,
   contentItems as items,
@@ -39,6 +42,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Coins,
+  Building2,
   Leaf,
   LogOut,
   Menu,
@@ -60,6 +64,8 @@ import {
   restoreSession,
   endSession,
   isCustomerIdentityError,
+  isEnterpriseSession,
+  switchEnterpriseSession,
   request,
   saveSession,
   statusLabel,
@@ -69,6 +75,7 @@ import {
   type Offer,
   type Session,
   type Wallet,
+  type EnterpriseMembership,
 } from "./api";
 import { CollectionMap } from "./CollectionMap";
 import { SubmissionAssistant } from "./SubmissionAssistant";
@@ -104,17 +111,22 @@ export function Login({
   sample: boolean;
 }) {
   const [register, setRegister] = useState(false);
+  const [enterprise, setEnterprise] = useState(false);
   return (
     <Dialog
-      title={register ? "Create your Circa account" : "Welcome back"}
+      title={enterprise ? "Enterprise sign in" : register ? "Create your Circa account" : "Welcome back"}
       onClose={onClose}
     >
-      <CustomerAuthentication
+      <div className="enterprise-login-tabs" role="tablist" aria-label="Participation">
+        <button role="tab" aria-selected={!enterprise} onClick={() => setEnterprise(false)}>Personal</button>
+        <button role="tab" aria-selected={enterprise} onClick={() => setEnterprise(true)}>Enterprise</button>
+      </div>
+      {enterprise ? <EnterpriseAuthentication onLogin={onLogin} /> : <CustomerAuthentication
         onLogin={onLogin}
         sample={sample}
         showTitle={false}
         onModeChange={setRegister}
-      />
+      />}
     </Dialog>
   );
 }
@@ -604,10 +616,12 @@ function AccountPage({
 }
 function WalletPage({
   wallet,
+  session,
   error,
   onRefresh,
 }: {
   wallet: Wallet | null;
+  session: Session;
   error: string;
   onRefresh: () => void;
 }) {
@@ -627,7 +641,7 @@ function WalletPage({
       {!wallet && !error ? (
         <p role="status">Loading your wallet…</p>
       ) : (
-        wallet && <CustomerWallet wallet={wallet} />
+        wallet && <CustomerWallet wallet={wallet} session={session} onRefresh={onRefresh} />
       )}
     </main>
   );
@@ -635,7 +649,6 @@ function WalletPage({
 export function TransactionPage({
   offer,
   session,
-  wallet,
   onLogin,
   onComplete,
   accountUrl = "/account",
@@ -651,186 +664,9 @@ export function TransactionPage({
   host?: JourneyHost;
   onBack?: () => void;
 }) {
-  const [review, setReview] = useState(false),
-    [reviewWallet, setReviewWallet] = useState<Wallet | null>(null),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [result, setResult] = useState<{
-      code: string;
-      message?: string;
-      entitlementCode?: string;
-    } | null>(null),
-    key = useRef(commandKey());
-  const active = useRef(true);
-  useEffect(() => {
-    active.current = true;
-    return () => { active.current = false; };
-  }, []);
-  useEffect(() => {
-    return host?.bindBack?.(
-      review ? () => { if (!busy) setReview(false); } : onBack || (() => {}),
-    );
-  }, [host, review, busy, onBack]);
-  const currentWallet = reviewWallet || wallet;
-  const ownsAsset = (value: Wallet | null) =>
-    offer.kind === "ASSET" && !!offer.ownerCode &&
-    offer.ownerCode === value?.wallet.ownerCode;
-  const balance = Number(
-    currentWallet?.balances.find((b) => b.rewardTypeCode === "points")
-      ?.available || 0,
-  );
-  async function openReview() {
-    if (!session || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const latest = await request<Wallet>(`${API}/wallet`, session);
-      if (!active.current) return;
-      setReviewWallet(latest);
-      if (ownsAsset(latest)) return;
-      const available = Number(
-        latest.balances.find((b) => b.rewardTypeCode === "points")?.available ||
-          0,
-      );
-      if (available < offer.rewardPrice) {
-        setError("More points are needed for this purchase.");
-        return;
-      }
-      setReview(true);
-    } catch (e) {
-      if (!active.current) return;
-      if (isCustomerIdentityError(e)) onLogin();
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Your balance could not be refreshed. Please try again.",
-      );
-    } finally {
-      if (active.current) setBusy(false);
-    }
-  }
-  return (
-    <section className="catalogue-purchase">
-      {result ? (
-        <div className="purchase-receipt" role="status">
-          <Check size={30} />
-          <h2>
-            {offer.kind === "ASSET"
-              ? "The asset is now yours."
-              : "Your coupon is ready."}
-          </h2>
-          <p>{result.message}</p>
-          <p>Reference: {result.code}</p>
-          {result.entitlementCode && (
-            <p>
-              Coupon: <strong>{result.entitlementCode}</strong>
-            </p>
-          )}
-          <a className="primary" href={accountUrl}>
-            Go to My Account
-          </a>
-        </div>
-      ) : (
-        <>
-          <ErrorNotice error={error} />
-          {session ? (
-            <>
-              <p>
-                Your available balance:{" "}
-                {currentWallet ? `${balance} points` : "Checked when you review your purchase"}
-              </p>
-              {ownsAsset(currentWallet) ? (
-                <p>You own this asset.</p>
-              ) : (
-                <button
-                  className="primary"
-                  disabled={busy || offer.available === false}
-                  onClick={() => void openReview()}
-                >
-                  {busy ? "Checking balance…" : "Review"}{" "}
-                  {offer.kind === "ASSET" ? "purchase" : "coupon purchase"}{" "}
-                  <ArrowRight size={16} />
-                </button>
-              )}
-              {!error && currentWallet && balance < offer.rewardPrice && (
-                <p>More points are needed for this purchase.</p>
-              )}
-            </>
-          ) : (
-            <button className="primary" onClick={onLogin}>
-              Sign in to continue
-            </button>
-          )}
-        </>
-      )}
-      {offer.kind === "ASSET" &&
-        offer.biddingAvailable &&
-        session &&
-        !ownsAsset(currentWallet) &&
-        !result && <BidComposer offer={offer} session={session} />}
-      {review && (
-        <Dialog
-          title="Review your purchase"
-          onClose={() => {
-            if (!busy) setReview(false);
-          }}
-        >
-          <h3>{offer.name}</h3>
-          <dl>
-            <dt>Reward payment</dt>
-            <dd>{offer.rewardPrice} points</dd>
-            <dt>Available after purchase</dt>
-            <dd>{balance - offer.rewardPrice} points</dd>
-            <dt>
-              {offer.kind === "ASSET"
-                ? "Asset and carbon ownership"
-                : "Carbon balance"}
-            </dt>
-            <dd>
-              {offer.kind === "ASSET"
-                ? `${offer.carbonUnits || 0} carbon units transfer with the asset. Original approval rewards remain with the contributor.`
-                : "Unchanged for this offer."}
-            </dd>
-          </dl>
-          <ErrorNotice error={error} />
-          <button
-            className="primary full"
-            disabled={busy || offer.available === false}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                const r = await request<{
-                  code: string;
-                  message?: string;
-                  entitlementCode?: string;
-                }>(`${API}/marketplace/${offer.code}/purchase`, session, {
-                  confirmed: true,
-                  expectedRevision: offer.revision,
-                  idempotencyKey: key.current,
-                });
-                if (!active.current) return;
-                setResult(r);
-                setReview(false);
-                onComplete();
-              } catch (e) {
-                if (!active.current) return;
-                setError(e instanceof Error ? e.message : "Purchase failed.");
-                if (isCustomerIdentityError(e)) {
-                  setReview(false);
-                  onLogin();
-                }
-              } finally {
-                if (active.current) setBusy(false);
-              }
-            }}
-          >
-            {busy ? "Completing purchase…" : "Confirm purchase"}
-          </button>
-        </Dialog>
-      )}
-    </section>
-  );
+  if (offer.biddingMode === "AUCTION") return <AuctionJourney offer={offer} session={session} onLogin={onLogin}
+    onComplete={onComplete} accountUrl={accountUrl} host={host} onBack={onBack} />;
+  return <CommercePurchase offer={offer} session={session} onLogin={onLogin} onComplete={onComplete} accountUrl={accountUrl} host={host} onBack={onBack} />;
 }
 
 export function CircaApp() {
@@ -838,6 +674,7 @@ export function CircaApp() {
     [session, setSession] = useState<Session | null>(readSession),
     [experience, setExperience] = useState<Experience | null>(null),
     [experienceError, setExperienceError] = useState(""),
+    [sessionError, setSessionError] = useState(""),
     [wallet, setWallet] = useState<Wallet | null>(null),
     [walletError, setWalletError] = useState(""),
     [market, setMarket] = useState<Market>({ assets: [], coupons: [] }),
@@ -861,15 +698,17 @@ export function CircaApp() {
   const refreshAll = useCallback(() => setRefresh((v) => v + 1), []);
   useEffect(() => {
     let active = true;
-    void restoreSession()
+    void restoreSession({ allowEnterprise: true })
       .then((value) => {
         if (active) setSession(value);
       })
       .catch(() => {
-        if (active)
-          setExperienceError(
+        if (active) {
+          setSession(null);
+          setSessionError(
             "Your session could not be restored. Please sign in again.",
           );
+        }
       });
     return () => {
       active = false;
@@ -991,7 +830,8 @@ export function CircaApp() {
   useEffect(() => {
     let active = true;
     setWalletError("");
-    if (session) {
+    setWallet(null);
+    if (session && !isEnterpriseSession(session)) {
       request<Wallet>(`${API}/wallet`, session)
         .then((d) => {
           if (active) setWallet(d);
@@ -1023,14 +863,28 @@ export function CircaApp() {
     setSession(value);
     setLogin(false);
     setSessionResetting(false);
+    setSessionError("");
+    setWallet(null);
+    if (isEnterpriseSession(value)) {
+      setAssistant(false);
+      setResumeCode(undefined);
+    }
+  }
+  async function switchEnterprise(membership: EnterpriseMembership) {
+    if (!isEnterpriseSession(session) || sessionResetting) return;
+    const original = session;
+    setSessionResetting(true); setSession(null); setWallet(null); setAssistant(false); setResumeCode(undefined);
+    setSessionError("");
+    try { onLogin(await switchEnterpriseSession(original, membership)); }
+    catch { setSessionError("Enterprise switching could not be confirmed. Sign in again."); setSessionResetting(false); setLogin(true); }
   }
   function openLogin() {
     if (!sessionResetting) setLogin(true);
   }
   function logout() {
     void endSession().catch(() =>
-      setExperienceError(
-        "Server sign-out could not be confirmed. Reconnect and sign out again.",
+      setSessionError(
+        "Browser access was cleared, but server sign-out could not be confirmed. Sign in again to manage the server session.",
       ),
     );
     saveSession(null);
@@ -1054,6 +908,10 @@ export function CircaApp() {
       });
   }
   function submit() {
+    if (isEnterpriseSession(session)) {
+      setExperienceError("eWaste submission requires a personal Customer session.");
+      return;
+    }
     setAssistant(true);
   }
   let page: ReactNode;
@@ -1068,6 +926,8 @@ export function CircaApp() {
         </button>
       </main>
     );
+  else if (isEnterpriseSession(session) && (path === "/wallet" || path === "/account" || path.startsWith("/account/")))
+    page = <EnterpriseAccount session={session} path={path} onSwitch={membership => void switchEnterprise(membership)} />;
   else if (path === "/account")
     page = (
       <main className="container">
@@ -1123,7 +983,7 @@ export function CircaApp() {
     );
   else if (path === "/wallet")
     page = (
-      <WalletPage wallet={wallet} error={walletError} onRefresh={refreshAll} />
+      <WalletPage wallet={wallet} session={session!} error={walletError} onRefresh={refreshAll} />
     );
   else if (path === "/shop" || path === "/coupons")
     page = (
@@ -1137,7 +997,7 @@ export function CircaApp() {
         kind={path.startsWith("/shop/") ? "ASSET" : "COUPON"}
         renderPurchase={(offer) => (
           <TransactionPage
-            key={offer.code}
+            key={offer.code + ":" + (session?.token || "guest")}
             offer={offer}
             session={session}
             wallet={wallet}
@@ -1191,7 +1051,7 @@ export function CircaApp() {
                 <Hero key={section.code} content={content} onSubmit={submit} />
               );
             case "circa.wallet":
-              return session ? (
+              return session && !isEnterpriseSession(session) ? (
                 <WalletBand
                   key={section.code}
                   wallet={wallet}
@@ -1243,6 +1103,7 @@ export function CircaApp() {
                     <CollectionMap
                       centres={experience.centres}
                       onChoose={(centre) => {
+                        if (isEnterpriseSession(session)) { submit(); return; }
                         setSelectedCentre(centre);
                         setAssistant(true);
                       }}
@@ -1302,13 +1163,13 @@ export function CircaApp() {
             {session ? (
               <>
                 <HeaderPopoverGroup>
-                  <AccountMenu path={path} />
-                  <CustomerUpdates session={session} />
-                  <HeaderWallet
+                  {isEnterpriseSession(session) ? <a href="/account" className="text-link enterprise-current-context" title={session.enterpriseCode}><Building2 size={18} /><span>{session.enterpriseCode}</span></a> : <AccountMenu path={path} />}
+                  {!isEnterpriseSession(session) && <CustomerUpdates session={session} />}
+                  {isEnterpriseSession(session) ? <a href="/wallet" className="icon-button" title="Enterprise wallet" aria-label="Enterprise wallet"><Coins size={18} /></a> : <HeaderWallet
                     wallet={wallet}
                     error={walletError}
                     onRefresh={refreshAll}
-                  />
+                  />}
                 </HeaderPopoverGroup>
                 <button
                   className="icon-button"
@@ -1338,6 +1199,8 @@ export function CircaApp() {
         </div>
       </header>
       <div id="main-content">{page}</div>
+      {sessionError && <div className="container"><ErrorNotice error={sessionError} /></div>}
+      {experienceError && isEnterpriseSession(session) && <div className="container"><ErrorNotice error={experienceError} /></div>}
       <footer>
         <div className="container footer-main">
           <div>
@@ -1349,7 +1212,7 @@ export function CircaApp() {
           </div>
           <div>
             <h3>Explore Circa</h3>
-            <button onClick={submit}>Submit eWaste</button>
+            {!isEnterpriseSession(session) && <button onClick={submit}>Submit eWaste</button>}
             <a href="/shop">Circular assets</a>
             <a href="/coupons">Partner offers</a>
             <a href="/#centres">Collection centres</a>
@@ -1357,7 +1220,13 @@ export function CircaApp() {
           <div>
             <h3>Your journey</h3>
             <a href="/account">My Account</a>
-            <a href="/wallet">Wallet</a>
+            <a
+              href={
+                isEnterpriseSession(session) ? "/wallet" : "/account/wallet"
+              }
+            >
+              Wallet
+            </a>
             <a href="/#how-it-works">How it works</a>
             <a href="/#contact">Get in touch</a>
           </div>
@@ -1386,7 +1255,7 @@ export function CircaApp() {
           onLogin={onLogin}
         />
       )}
-      <SubmissionAssistant
+      {!isEnterpriseSession(session) && <SubmissionAssistant
         open={assistant}
         setOpen={setAssistant}
         session={session}
@@ -1396,7 +1265,7 @@ export function CircaApp() {
         onCustomerIdentityInvalid={invalidateCustomerSession}
         onSubmitted={refreshAll}
         resumeCode={resumeCode}
-      />
+      />}
     </div>
   );
 }

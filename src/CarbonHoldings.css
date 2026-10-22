@@ -1,0 +1,30 @@
+.carbon-holdings { min-width: 0; letter-spacing: 0; }
+.carbon-holdings-section { min-width: 0; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #dce3df; color: #24342e; }
+.carbon-holdings-section > header, .carbon-holdings-lot > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.carbon-holdings-section h2 { margin: 0; font-size: 1.35rem; line-height: 1.4; }
+.carbon-holdings-section h3 { margin: 0; font-size: 1rem; line-height: 1.5; overflow-wrap: anywhere; min-width: 0; flex: 1 1 12rem; }
+.carbon-holdings-section button { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0; border: 1px solid #b7c2bd; border-radius: 4px; background: #fff; color: #24342e; cursor: pointer; }
+.carbon-holdings-section button:disabled { opacity: .45; cursor: default; }
+.carbon-holdings-section button:focus-visible, .carbon-holdings-section summary:focus-visible { outline: 2px solid #217a67; outline-offset: 3px; }
+.carbon-holdings-section button:not(:disabled):hover { background: #eef5f2; }
+.carbon-holdings-section [role="alert"] { color: #a12d37; }
+.carbon-holdings-lot { padding: 1.25rem 0; border-bottom: 1px solid #e5e9e7; min-width: 0; }
+.carbon-holdings-state { font-size: .85rem; color: #335d75; overflow-wrap: anywhere; }
+.carbon-holdings-synthetic { color: #8f3944; font-size: .85rem; margin: .5rem 0; }
+.carbon-holdings-owner, .carbon-holdings-muted { color: #53635d; font-size: .9rem; overflow-wrap: anywhere; }
+.carbon-holdings-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 1rem; margin: 1rem 0; }
+.carbon-holdings-amounts > div { min-width: 0; }
+.carbon-holdings-amounts dt { font-size: .8rem; line-height: 1.5; color: #53635d; }
+.carbon-holdings-amounts dd { margin: .3rem 0 0; font-size: 1.15rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.carbon-holdings-amounts small { font-size: .85rem; font-weight: 400; }
+.carbon-holdings-section summary { cursor: pointer; width: fit-content; max-width: 100%; font-size: .9rem; padding: .4rem 0; overflow-wrap: anywhere; }
+.carbon-holdings-evidence { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: .5rem 1rem; font-size: .85rem; }
+.carbon-holdings-evidence dt { color: #53635d; overflow-wrap: anywhere; }
+.carbon-holdings-evidence dd { margin: 0; overflow-wrap: anywhere; }
+.carbon-holdings-reference { display: block; overflow-wrap: anywhere; font-size: .8rem; line-height: 1.5; }
+.carbon-holdings-source { margin-top: .75rem; font-size: .85rem; overflow-wrap: anywhere; }
+.carbon-holdings-pages { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; font-size: .85rem; }
+@media (max-width: 400px) {
+  .carbon-holdings-evidence { grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+  .carbon-holdings-evidence dd { margin-bottom: .6rem; }
+}

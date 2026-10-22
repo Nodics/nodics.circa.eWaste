@@ -1,0 +1,159 @@
+.bundle-composer {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  letter-spacing: 0;
+}
+.bundle-composer-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.bundle-composer-heading h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.bundle-composer-heading span,
+.bundle-composer-reference {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.bundle-composer form,
+.bundle-composer-fields,
+.bundle-composer-carbon {
+  display: grid;
+  gap: 16px;
+}
+.bundle-composer fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 18px 0;
+  margin: 0;
+  border-top: 1px solid #dce2df;
+}
+.bundle-composer legend {
+  font-size: 16px;
+  font-weight: 600;
+  padding-right: 12px;
+}
+.bundle-composer label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.bundle-composer input,
+.bundle-composer select {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+.bundle-composer input[type="checkbox"],
+.bundle-composer input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.bundle-composer button {
+  min-height: 40px;
+  max-width: 100%;
+  white-space: normal;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+.bundle-composer button svg {
+  flex-shrink: 0;
+}
+.bundle-composer-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.bundle-composer-modes button {
+  background: #f4f6f5;
+  border: 1px solid #aebbb6;
+  padding: 10px 16px;
+  border-radius: 0;
+  color: #263f36;
+}
+.bundle-composer-modes button[aria-pressed="true"] {
+  background: #145b48;
+  color: #fff;
+}
+.bundle-composer-modes button:disabled {
+  opacity: 0.5;
+}
+.bundle-composer-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.bundle-composer-lot {
+  padding: 12px 0;
+  border-bottom: 1px solid #dce2df;
+  display: grid;
+  gap: 12px;
+}
+.bundle-composer .bundle-composer-lot-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bundle-composer-lot small {
+  display: block;
+  font-size: 13px;
+  color: #52665d;
+}
+.bundle-composer-pages {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.bundle-composer-selected,
+.bundle-composer-summary ul {
+  padding-left: 20px;
+}
+.bundle-composer-result,
+.bundle-composer-pending {
+  padding: 20px 0;
+}
+.bundle-composer-result > svg {
+  color: #145b48;
+}
+.bundle-composer-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bundle-composer-summary h3 {
+  font-size: 18px;
+}
+@media (max-width: 540px) {
+  .bundle-composer-dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bundle-composer-modes button {
+    flex: 1 1 110px;
+    padding: 10px;
+  }
+}
+.bundle-composition-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.bundle-destination {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.bundle-destination select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem;
+}

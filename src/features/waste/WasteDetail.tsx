@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useRef,
   useState,
   type MouseEvent,
   type ReactNode,
@@ -8,14 +7,13 @@ import {
 import {
   ArrowLeft,
   ArrowUpRight,
-  Check,
   ChevronRight,
   Expand,
   Leaf,
   MapPin,
   ShieldCheck,
 } from "lucide-react";
-import { API, commandKey, nameOf, request, type Session } from "../../api";
+import { API, nameOf, request, type Session } from "../../api";
 import { ReviewDialog } from "../../ReviewDialog";
 import { ItemSpecifications } from "../submission/ItemDetailsCard";
 import { ImpactAssessmentHistory } from "../submission/ImpactAssessmentHistory";
@@ -28,7 +26,6 @@ import {
   wasteName,
 } from "./WasteCard";
 import type {
-  WasteAction,
   WasteCopy,
   WasteDetail,
   WasteItem,
@@ -80,165 +77,6 @@ function FollowLink({
   );
 }
 
-/** Reuses the existing explicitly confirmed listing/gift operations with the exact displayed revision. */
-function WasteActionDialog({
-  item,
-  action,
-  session,
-  copy,
-  endpoint,
-  onClose,
-  onComplete,
-}: {
-  item: WasteItem;
-  action: WasteAction;
-  session: Session;
-  copy: WasteCopy;
-  endpoint: string;
-  onClose: (commandAttempted: boolean) => void;
-  onComplete: () => void;
-}) {
-  const [price, setPrice] = useState(String(action.command?.rewardPrice || "")),
-    [recipient, setRecipient] = useState("");
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [result, setResult] = useState("");
-  const key = useRef(action.command?.idempotencyKey || commandKey());
-  const commandAttempted = useRef(false);
-  const listing = action.code === "LIST";
-  const close = () => onClose(commandAttempted.current);
-  return (
-    <ReviewDialog
-      title={action.label}
-      onClose={() => {
-        if (!busy) close();
-      }}
-      className="waste-action-dialog"
-    >
-      <p className="waste-command-item">{wasteName(item)}</p>
-      <p>
-        {listing
-          ? copy(
-              "listingTerms",
-              "Choose a whole-number price in reward points. Your digital asset will be offered for trade after publication.",
-            )
-          : copy(
-              "giftTerms",
-              "Review the recipient carefully. Digital ownership and attached carbon units transfer to the recipient; original approval rewards stay with the contributor.",
-            )}
-      </p>
-      {result ? (
-        <>
-          <p className="waste-command-result" role="status">
-            <Check size={20} />
-            {result}
-          </p>
-          <button className="waste-primary" onClick={close}>
-            {copy("done", "Done")}
-          </button>
-        </>
-      ) : (
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (busy) return;
-            setBusy(true);
-            setError("");
-            // Failed responses can follow an applied write; dismissal must reread it.
-            commandAttempted.current = true;
-            try {
-              const result = await request<{ message?: string }>(
-                `${endpoint}/assets/${encodeURIComponent(item.code)}/${listing ? "list" : "gift"}`,
-                session,
-                {
-                  idempotencyKey: key.current,
-                  expectedRevision: item.revision,
-                  confirmed: true,
-                  ...(listing
-                    ? { rewardPrice: Number(price) }
-                    : { recipientEmail: recipient.trim() }),
-                },
-              );
-              setResult(
-                result.message ||
-                  copy("actionComplete", "The operation completed."),
-              );
-              onComplete();
-            } catch (cause) {
-              setError(
-                cause instanceof Error
-                  ? cause.message
-                  : copy(
-                      "actionFailed",
-                      "The operation could not be confirmed. Retry with the same details.",
-                    ),
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {listing ? (
-            <label>
-              {copy("listingPrice", "Price in reward points")}
-              <input
-                type="number"
-                min="1"
-                max="100000"
-                step="1"
-                required
-                value={price}
-                readOnly={!!action.command}
-                disabled={busy}
-                onChange={(event) => setPrice(event.target.value)}
-              />
-            </label>
-          ) : (
-            <label>
-              {copy("recipientEmail", "Recipient email")}
-              <input
-                type="email"
-                required
-                value={recipient}
-                disabled={busy}
-                onChange={(event) => setRecipient(event.target.value)}
-              />
-            </label>
-          )}
-          <p className="waste-fine-print">
-            {copy(
-              "ownershipTerms",
-              "This experience transfers digital asset ownership. Physical delivery is not included.",
-            )}
-          </p>
-          {error && (
-            <p role="alert" className="waste-error">
-              {error}
-            </p>
-          )}
-          <div className="waste-dialog-actions">
-            <button
-              type="button"
-              className="waste-secondary"
-              disabled={busy}
-              onClick={close}
-            >
-              {copy("cancel", "Cancel")}
-            </button>
-            <button type="submit" className="waste-primary" disabled={busy}>
-              {busy
-                ? copy("processing", "Processing…")
-                : listing
-                  ? copy("confirmListing", "Confirm listing")
-                  : copy("confirmGift", "Confirm gift")}
-            </button>
-          </div>
-        </form>
-      )}
-    </ReviewDialog>
-  );
-}
-
 /** Both quick view and full detail fetch the current owner projection, independently of any list page. */
 export function WasteDetailView({
   selection,
@@ -248,7 +86,6 @@ export function WasteDetailView({
   onOpen,
   href,
   onContinue,
-  onChanged,
   onBack,
   sections,
   quick = false,
@@ -257,11 +94,7 @@ export function WasteDetailView({
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
     [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<{
-      item: WasteItem;
-      action: WasteAction;
-    } | null>(null),
-    [zoom, setZoom] = useState(false),
+  const [zoom, setZoom] = useState(false),
     [section, setSection] = useState("overview");
   useEffect(() => {
     let active = true;
@@ -353,15 +186,16 @@ export function WasteDetailView({
           <ArrowUpRight size={17} />
         </a>
       ) : ["LIST", "GIFT"].includes(value.code) ? (
-        <button
+        <a
           key={value.code}
+          href={`/account/bundles?certificate=${encodeURIComponent(target.code)}&mode=${value.code === "GIFT" ? "GIFT" : "FIXED"}`}
           className={
             value.code === "LIST" ? "waste-primary" : "waste-secondary"
           }
-          onClick={() => setAction({ item: target, action: value })}
         >
           {value.label}
-        </button>
+          <ArrowUpRight size={17} />
+        </a>
       ) : null,
     );
   const ownership = item.ownership || data.relatedAsset?.ownership;
@@ -729,20 +563,6 @@ export function WasteDetailView({
         >
           <WastePhoto item={item} session={session} />
         </ReviewDialog>
-      )}
-      {action && (
-        <WasteActionDialog
-          item={action.item}
-          action={action.action}
-          session={session}
-          copy={copy}
-          endpoint={endpoint}
-          onClose={(commandAttempted) => {
-            setAction(null);
-            if (commandAttempted) refresh();
-          }}
-          onComplete={onChanged}
-        />
       )}
     </article>
   );

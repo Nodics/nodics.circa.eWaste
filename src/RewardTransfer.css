@@ -1,0 +1,16 @@
+.reward-transfer { border-top: 1px solid #dce3df; margin-top: 2rem; padding-top: 1.5rem; max-width: 42rem; }
+.reward-transfer h2 { font-size: 1.35rem; }
+.reward-transfer form { display: grid; gap: 1rem; }
+.reward-transfer label { display: grid; gap: .4rem; }
+.reward-transfer input, .reward-transfer select { min-width: 0; width: 100%; padding: .7rem; border: 1px solid #b7c2bd; border-radius: 4px; background: white; color: #1c3329; font: inherit; }
+.transfer-search { display: flex; gap: .5rem; }
+.transfer-search input { flex: 1; }
+.transfer-search button { flex-shrink: 0; }
+.transfer-recipients { display: grid; gap: .5rem; }
+.transfer-recipients label { display: flex; align-items: center; gap: .6rem; padding: .6rem 0; border-bottom: 1px solid #e5e9e7; }
+.transfer-recipients input { width: auto; }
+.transfer-recipients small, .transfer-summary small { display: block; color: #53635d; overflow-wrap: anywhere; }
+.transfer-summary { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .6rem; }
+.transfer-summary dd { margin: 0; overflow-wrap: anywhere; }
+.transfer-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.transfer-reference { overflow-wrap: anywhere; font-size: .85rem; }

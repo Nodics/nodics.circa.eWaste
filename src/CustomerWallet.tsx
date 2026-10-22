@@ -1,9 +1,20 @@
 import { ArrowUpRight, Coins, Leaf, Wallet as WalletIcon } from "lucide-react";
-import type { Wallet } from "./api";
+import type { Session, Wallet } from "./api";
+import { RewardTransfer } from "./RewardTransfer";
+import { CarbonHoldings } from "./CarbonHoldings";
+import { PartnerRewardConversion } from "./PartnerRewardConversion";
 import { HeaderPopover } from "./HeaderPopover";
 
 /** Displays balances and ledger entries supplied by the Loyalty-owned wallet API. */
-export function CustomerWallet({ wallet }: { wallet: Wallet }) {
+export function CustomerWallet({
+  wallet,
+  session,
+  onRefresh,
+}: {
+  wallet: Wallet;
+  session?: Session;
+  onRefresh?: () => void;
+}) {
   return (
     <>
       <div className="wallet-cards">
@@ -31,6 +42,11 @@ export function CustomerWallet({ wallet }: { wallet: Wallet }) {
         Carbon units are rewards. They are separate from CO₂e savings and are
         not issued carbon credits.
       </p>
+      {session && <RewardTransfer session={session} onComplete={onRefresh} />}
+      {session && (
+        <PartnerRewardConversion session={session} onComplete={onRefresh} />
+      )}
+      {session && <CarbonHoldings session={session} />}
       <h2>Recent transactions</h2>
       <div className="ledger">
         {wallet.entries.map((entry) => (

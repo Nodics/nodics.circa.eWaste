@@ -8,8 +8,19 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(env.VITE_CIRCA_PORT ?? 3600),
       strictPort: true,
-      allowedHosts: [".trycloudflare.com"],
+      allowedHosts: [
+        ".trycloudflare.com",
+        "telegram-circa-local.nodics.dev",
+      ],
       proxy: {
+        "^/nodics/(cart|checkoutCore|digitalCore|bidding|order)(/|$)": {
+          target: env.VITE_CIRCA_COMMERCE_TARGET ?? "http://127.0.0.1:4350",
+          changeOrigin: true,
+        },
+        "/nodics/loyaltyApi": {
+          target: env.VITE_CIRCA_LOYALTY_TARGET ?? "http://127.0.0.1:4360",
+          changeOrigin: true,
+        },
         "/nodics/engagement": {
           target: env.VITE_CIRCA_ENGAGEMENT_TARGET ?? "http://127.0.0.1:4340",
           changeOrigin: true,

@@ -10,6 +10,8 @@ import {
   LayoutDashboard,
   Wallet as WalletIcon,
   Settings,
+  Gift,
+  PackagePlus,
 } from "lucide-react";
 import {
   API,
@@ -20,6 +22,8 @@ import {
   type Wallet,
 } from "./api";
 import { CustomerWallet } from "./CustomerWallet";
+import { BundleGifts } from "./BundleGifts";
+import { BundleCompositionPage } from "./features/bundles/BundleCompositionPage";
 import { BidHistory } from "./BidsPanel";
 import { PurchaseHistory } from "./PurchaseHistory";
 import "./accountSections.css";
@@ -28,6 +32,8 @@ import { ContactPreferences } from "./features/contact/ContactPreferences";
 import { contactPreferencesEnabled } from "./features/contact/contactClient";
 
 export const accountSections = [
+  { code: "bundles", label: "Create bundle", description: "", Icon: PackagePlus },
+  { code: "gifts", label: "Gifts", description: "", Icon: Gift },
   {
     code: "overview",
     label: "Dashboard",
@@ -89,6 +95,8 @@ export function readAccountSection(
     ? url.searchParams.get("account")
     : url.pathname.match(/^\/account\/([^/]+)$/)?.[1];
   return value === "bids" ||
+    value === "gifts" ||
+    value === "bundles" ||
     (value === "preferences" && contactPreferencesEnabled) ||
     value === "purchases" ||
     value === "activity" ||
@@ -196,13 +204,13 @@ export function AccountSectionPage({
     let active = true;
     setData(null);
     setError("");
-    if (section === "preferences") return;
+    if (section === "preferences" || section === "bundles" || section === "purchases") return;
     const account =
-      section !== "purchases" && section !== "wallet"
+      section !== "wallet"
         ? request<Account>(`${API}/account`, session)
         : Promise.resolve(undefined);
     const market =
-      section !== "activity" && section !== "wallet"
+      section !== "activity" && section !== "wallet" && section !== "gifts"
         ? request<Market>(`${API}/marketplace`, session)
         : Promise.resolve(undefined);
     const wallet =
@@ -232,6 +240,14 @@ export function AccountSectionPage({
     setReload((value) => value + 1);
     onRefresh?.();
   };
+  const bundleQuery = new URL(window.location.href).searchParams;
+  const requestedBundleMode = bundleQuery.get("mode");
+  const initialBundleMode =
+    requestedBundleMode === "FIXED" ||
+    requestedBundleMode === "AUCTION" ||
+    requestedBundleMode === "GIFT"
+      ? requestedBundleMode
+      : undefined;
   return (
     <div
       className={`account-section-page${mobile ? " account-section-mobile" : ""}`}
@@ -259,7 +275,16 @@ export function AccountSectionPage({
         <ArrowLeft size={17} />
         Back to dashboard
       </a>
-      {section === "preferences" ? (
+      {section === "bundles" ? (
+        <BundleCompositionPage
+          session={session}
+          onComplete={onRefresh}
+          initialCertificateCode={bundleQuery.get("certificate") || undefined}
+          initialMode={initialBundleMode}
+        />
+      ) : section === "purchases" ? (
+        <PurchaseHistory session={session} offers={[]} headingLevel="h1" />
+      ) : section === "preferences" ? (
         contactPreferencesEnabled && <ContactPreferences session={session} />
       ) : error ? (
         <>
@@ -276,10 +301,12 @@ export function AccountSectionPage({
           <h1>{label}</h1>
           <p role="status">Loading {label.toLowerCase()}…</p>
         </>
+      ) : section === "gifts" && current.account ? (
+        <BundleGifts session={session} ownerRef={{ module: "profile", schema: "customer", code: current.account.customer.code }} onComplete={onRefresh} />
       ) : section === "wallet" && current.wallet ? (
         <section>
           <h1>Your wallet</h1>
-          <CustomerWallet wallet={current.wallet} />
+          <CustomerWallet wallet={current.wallet} session={session} onRefresh={refresh} />
         </section>
       ) : section === "bids" &&
         current.account &&
@@ -292,12 +319,6 @@ export function AccountSectionPage({
           assets={current.account.assets}
           wallet={current.wallet}
           onComplete={refresh}
-          headingLevel="h1"
-        />
-      ) : section === "purchases" && current.market ? (
-        <PurchaseHistory
-          session={session}
-          offers={current.market.coupons}
           headingLevel="h1"
         />
       ) : (

@@ -2,10 +2,7 @@ import {
   cleanup,
   render,
   screen,
-  waitFor,
-  within,
 } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { request } from "../../api";
 import { WasteDetailView } from "./WasteDetail";
@@ -88,7 +85,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 function view() {
-  const changed = vi.fn();
   render(
     <WasteDetailView
       selection={{ resource: "assets", code: "ASSET_1" }}
@@ -98,86 +94,40 @@ function view() {
       onOpen={vi.fn()}
       href={() => "/account/items"}
       onContinue={vi.fn()}
-      onChanged={changed}
+      onChanged={vi.fn()}
       onBack={vi.fn()}
       sections={[{ code: "overview", label: "Overview" }]}
     />,
   );
-  return changed;
 }
 
-it.each(["Cancel", "Close dialog"])(
-  "%s preserves the loaded asset and opener without another read",
-  async (close) => {
-    const user = userEvent.setup();
-    view();
-    const opener = await screen.findByRole("button", {
-      name: "List for trade",
-    });
-    await user.click(opener);
-    await user.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: close }),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(
-      screen.getByRole("heading", { name: "Reviewed device" }),
-    ).toBeVisible();
-    expect(opener).toHaveFocus();
-    expect(call).toHaveBeenCalledTimes(1);
-  },
-);
-
-it("refreshes authoritative detail after a completed command is dismissed", async () => {
-  const user = userEvent.setup();
-  const changed = view();
-  await user.click(
-    await screen.findByRole("button", { name: "List for trade" }),
+it("routes asset trading through the canonical bundle composer", async () => {
+  view();
+  expect(
+    await screen.findByRole("link", { name: "List for trade" }),
+  ).toHaveAttribute(
+    "href",
+    "/account/bundles?certificate=ASSET_1&mode=FIXED",
   );
-  call
-    .mockResolvedValueOnce({ message: "Listing requested" })
-    .mockResolvedValue(detail);
-  await user.type(
-    screen.getByRole("spinbutton", { name: "Price in reward points" }),
-    "25",
-  );
-  await user.click(screen.getByRole("button", { name: "Confirm listing" }));
-  await screen.findByText("Listing requested");
-  expect(changed).toHaveBeenCalledTimes(1);
-  expect(call.mock.calls[1]).toEqual([
-    "/waste/assets/ASSET_1/list",
-    { token: "test", loginId: "owner" },
-    expect.objectContaining({
-      expectedRevision: 7,
-      confirmed: true,
-      rewardPrice: 25,
-    }),
-  ]);
-  await user.click(screen.getByRole("button", { name: "Done" }));
-  await waitFor(() => expect(call).toHaveBeenCalledTimes(3));
-  expect(call.mock.calls[2][0]).toBe(
-    "/waste/account/items/ASSET_1?view=assets",
-  );
+  expect(call).toHaveBeenCalledTimes(1);
+  expect(
+    call.mock.calls.some(([path]) => path.endsWith("/list")),
+  ).toBe(false);
 });
 
-it("rereads after an uncertain command failure without retrying the write", async () => {
-  const user = userEvent.setup();
-  const changed = view();
-  await user.click(
-    await screen.findByRole("button", { name: "List for trade" }),
-  );
-  call
-    .mockRejectedValueOnce(new Error("Response unavailable"))
-    .mockResolvedValue(detail);
-  await user.type(
-    screen.getByRole("spinbutton", { name: "Price in reward points" }),
-    "25",
-  );
-  await user.click(screen.getByRole("button", { name: "Confirm listing" }));
-  await screen.findByRole("alert");
-  await user.click(screen.getByRole("button", { name: "Cancel" }));
-  await waitFor(() => expect(call).toHaveBeenCalledTimes(3));
+it("routes asset gifting through the canonical bundle composer", async () => {
+  call.mockResolvedValue({
+    ...detail,
+    item: {
+      ...detail.item,
+      actions: [{ code: "GIFT", label: "Gift this asset" }],
+    },
+  });
+  view();
   expect(
-    call.mock.calls.filter((args) => args[0].endsWith("/list")),
-  ).toHaveLength(1);
-  expect(changed).not.toHaveBeenCalled();
+    await screen.findByRole("link", { name: "Gift this asset" }),
+  ).toHaveAttribute(
+    "href",
+    "/account/bundles?certificate=ASSET_1&mode=GIFT",
+  );
 });

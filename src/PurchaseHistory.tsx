@@ -1,10 +1,18 @@
-/** Customer-owned purchase history; Commerce owns redemption state and evidence. */
+/** Shared participant history via Order/Digital. Enterprise ownerRef, ownerId and
+ * participantEnterpriseCode bind the buyer independently of merchant enterpriseCode.
+ * Reveal consumes only canonical REVEALED/token evidence for the listed providerCode;
+ * Commerce owns eligibility, redemption and secret retention, not this renderer. */
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { API, request, type Session, type Offer } from "./api";
+import { request, type Session, type Offer } from "./api";
 import { OrderReview } from "./OrderReview";
 import "./purchaseReview.css";
 type Entitlement = {
+  ownerRef?: { type: "CUSTOMER" | "ENTERPRISE"; code: string };
+  ownerId?: string;
+  participantEnterpriseCode?: string;
+  providerCode?: string;
+  digitalDeliveryType: string;
   status: string;
   evidence?: {
     merchantRedemption?: {
@@ -27,6 +35,7 @@ type Entitlement = {
 };
 type Purchases = {
   orders: {
+    evidence?: { ownerRef?: { module: "profile"; schema: "customer" | "enterprise"; code: string } };
     code: string;
     totalAmount: string;
     currency: string;
@@ -36,7 +45,7 @@ type Purchases = {
   entitlements: Entitlement[];
 };
 /** Keeps bounded display fields only; malformed owner reads never unlock coupon reveal. */
-function purchases(value: Purchases): Purchases {
+function purchases(value: Purchases, session: Session): Purchases {
   const bounded = (item: unknown, maximum = 192): item is string =>
     typeof item === "string" && item.length > 0 && item.length <= maximum;
   if (
@@ -62,6 +71,8 @@ function purchases(value: Purchases): Purchases {
         !bounded(item.productCode) ||
         !bounded(item.orderCode) ||
         !bounded(item.status, 64) ||
+        !bounded(item.digitalDeliveryType, 64) ||
+        (item.digitalDeliveryType === "COUPON_CODE" && !bounded(item.providerCode)) ||
         !bounded(item.claimStatus, 64) ||
         !bounded(item.purchasedAt, 64) ||
         !Number.isFinite(Date.parse(item.purchasedAt)) ||
@@ -79,6 +90,16 @@ function purchases(value: Purchases): Purchases {
     throw new Error(
       "Purchase history could not be confirmed. Refresh before using a coupon.",
     );
+  // Merchant enterpriseCode is storage namespace, never evidence of the buyer.
+  if (session.kind === "ENTERPRISE" && (
+    value.entitlements.some(item => item.ownerRef?.type !== "ENTERPRISE" || item.ownerRef.code !== session.enterpriseCode ||
+      item.ownerId !== session.enterpriseCode || item.participantEnterpriseCode !== session.enterpriseCode) ||
+    value.orders.some(item => item.evidence?.ownerRef?.module !== "profile" ||
+      item.evidence.ownerRef.schema !== "enterprise" || item.evidence.ownerRef.code !== session.enterpriseCode)
+  )) throw new Error("Enterprise purchase ownership could not be confirmed.");
+  if (session.kind !== "ENTERPRISE" && (value.entitlements.some(item => item.ownerRef?.type === "ENTERPRISE") ||
+    value.orders.some(item => item.evidence?.ownerRef?.schema === "enterprise")))
+    throw new Error("Personal purchase ownership could not be confirmed.");
   return {
     orders: value.orders.map(
       ({ code, totalAmount, currency, created, status }) => ({
@@ -122,6 +143,8 @@ function purchases(value: Purchases): Purchases {
         productCode: item.productCode,
         orderCode: item.orderCode,
         status: item.status,
+        digitalDeliveryType: item.digitalDeliveryType,
+        providerCode: item.providerCode,
         claimStatus: item.claimStatus,
         purchasedAt: item.purchasedAt,
         ...(item.validTo === undefined ? {} : { validTo: item.validTo }),
@@ -164,11 +187,12 @@ export function PurchaseHistory({
     setError("");
     setRevealed({});
     setBusy("");
-    request<Purchases>(`${API}/purchases`, session, undefined, "GET", {
-      signal: controller.signal,
-    })
-      .then((d) => {
-        const data = purchases(d);
+    Promise.all([
+      request<Purchases["orders"]>("/nodics/order/v0/orders?limit=100", session, undefined, "GET", { signal: controller.signal }),
+      request<Pick<Purchases, "entitlements">>("/nodics/digitalCore/v0/entitlements", session, undefined, "GET", { signal: controller.signal }),
+    ])
+      .then(([orders, issued]) => {
+        const data = purchases({ orders, entitlements: issued?.entitlements }, session);
         if (active) setSnapshot({ session, data });
       })
       .catch((e) => {
@@ -234,7 +258,7 @@ export function PurchaseHistory({
               {data.entitlements.map((e) => (
                 <article className="conversation-card" key={e.code}>
                   <span className="eyebrow">
-                    Owned coupon · {e.claimStatus.toLowerCase()}
+                    {e.digitalDeliveryType === "COUPON_CODE" ? "Owned coupon" : "Digital entitlement"} · {e.claimStatus.toLowerCase()}
                   </span>
                   <h3>
                     {offers.find((o) => o.code === e.productCode)?.name ||
@@ -261,7 +285,7 @@ export function PurchaseHistory({
                       </ul>
                     </details>
                   )}
-                  {e.status === "ACTIVE" &&
+                  {e.digitalDeliveryType === "COUPON_CODE" && e.status === "ACTIVE" &&
                     e.claimStatus !== "REDEEMED" &&
                     (!e.validTo ||
                       (Number.isFinite(Date.parse(e.validTo)) &&
@@ -281,23 +305,19 @@ export function PurchaseHistory({
                           try {
                             const result = await request<{
                               token?: string;
-                              code?: string;
-                              couponToken?: string;
-                              protectedToken?: string;
+                              couponCode?: string;
                               tokenAvailable?: boolean;
                               reasonCode?: string;
                               status?: string;
                             }>(
-                              `${API}/coupons/${encodeURIComponent(e.code)}/reveal`,
+                              `/nodics/digitalCore/v0/entitlements/${encodeURIComponent(e.code)}/reveal`,
                               session,
                               { confirmed: true },
                             );
-                            const token =
-                              result.token ||
-                              result.couponToken ||
-                              result.protectedToken;
+                            const token = result.token;
                             if (
                               result.status !== "REVEALED" ||
+                              result.couponCode !== e.providerCode || result.tokenAvailable === false ||
                               typeof token !== "string" ||
                               !token ||
                               token.length > 2048
@@ -379,10 +399,7 @@ export function PurchaseHistory({
                         )}
                     </>
                   )}
-                  <small>
-                    Local sample offer. Use only with the sample partner
-                    journey.
-                  </small>
+                  <small>Purchase reference: {e.orderCode}</small>
                 </article>
               ))}
             </div>
@@ -394,12 +411,12 @@ export function PurchaseHistory({
                       {o.totalAmount} {o.currency.toLowerCase()}
                     </strong>
                     <small>{o.code}</small>
-                    <OrderReview code={o.code} session={session} />
+                    {session.kind !== "ENTERPRISE" && <OrderReview code={o.code} session={session} />}
                   </span>
                   <time>{new Date(o.created).toLocaleDateString("en-GB")}</time>
                 </div>
               ))}
-              {!data.orders.length && (
+              {!data.orders.length && !data.entitlements.length && (
                 <p>Your completed purchases will appear here.</p>
               )}
             </div>

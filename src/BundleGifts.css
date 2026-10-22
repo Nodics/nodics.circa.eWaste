@@ -1,0 +1,15 @@
+.bundle-gifts { width: 100%; min-width: 0; }
+.gift-heading, .gift-tabs, .gift-actions, .gift-pagination { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.gift-heading { justify-content: space-between; }
+.gift-tabs { border-bottom: 1px solid #dce2df; margin: 18px 0; }
+.gift-tabs button { padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; }
+.gift-tabs button[aria-selected="true"] { border-bottom-color: #12745c; color: #125c4c; font-weight: 600; }
+.gift-list { list-style: none; padding: 0; margin: 0; }
+.gift-list > li { display: flex; gap: 16px; padding: 20px 0; border-bottom: 1px solid #dce2df; }
+.gift-list > li > svg { flex-shrink: 0; margin-top: 5px; color: #9b3e67; }
+.gift-body { min-width: 0; overflow-wrap: anywhere; }
+.gift-body h2 { font-size: 18px; margin: 0 0 6px; }
+.gift-body p, .gift-body li { font-size: 14px; }
+.gift-body ul { padding-left: 18px; }
+.gift-reference { overflow-wrap: anywhere; font-size: 13px; }
+.gift-pagination { justify-content: flex-end; padding: 16px 0; }
