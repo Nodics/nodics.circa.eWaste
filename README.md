@@ -157,9 +157,10 @@ redemption evidence and complete programme validation remain open.
 - Location and photo preparation are temporary until image analysis succeeds.
   Leaving early or failing analysis creates no new submission or uploaded Media.
   A successful preparation saves an analyzed draft; final submission remains explicit.
-- Fixed-price asset purchase, confirmed listing and gifting. Attached
-  illustrative carbon moves with the asset; historical approval rewards stay
-  with the contributor. Commerce places orders; Loyalty owns value movement.
+- Certificate listing and gifting use the common bundle composer. Reward points
+  and carbon reward units stay with the contributor; realized, available carbon
+  credits require separate bundle selection. Illustrative units are not credits.
+  Commerce places orders; Loyalty owns value movement.
 - Contact intake records an Engagement reference and reports its verification
   requirement. External support delivery requires deployment configuration.
 
@@ -437,3 +438,16 @@ execution; changing source mid-run cannot produce a passing batch.
 This is retained-data browser acceptance, not actual Telegram client/device,
 external SMTP/Telegram/Mapbox, real-payment or human screen-reader qualification.
 It does not replay the completed native financial demo or qualify deferred scope.
+
+## Enterprise Membership Availability
+
+Enterprise account controls consume Profile's versioned feature observation from
+the existing `/nodics/backoffice/v0/bootstrap/public` response, at
+`featureAvailability.profile`. No Circa environment flag or copied project default
+defines membership availability. Both discovery and switching must be explicitly
+available before optional switch controls request the membership workspace.
+The signed-in identity remains visible when disabled. Missing/malformed bootstrap
+evidence and denied workspace reads retain an error and retry, not empty choices.
+Profile continues to enforce membership, session and revision checks on switching.
+Older runtime leases without the field remain unknown until the normal deployment
+lifecycle refreshes owner metadata; do not enable the membership API for UI repair.

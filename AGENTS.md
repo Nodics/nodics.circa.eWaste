@@ -7,6 +7,9 @@ Circa is the customer frontend for Nodics EXP. It consumes the single eWaste dom
 - Keep reusable waste behavior aligned to `nodics.waste` and the waste accelerator contract.
 - Keep reward balances and wallet transactions owned by Loyalty/Wallet APIs.
 - Keep coupons, coupon entitlement, and POS claim owned by Commerce/Promotion APIs.
+- Render declared certificate-only and combined coupon consideration in cards and
+  summaries; a zero points price must not hide a required certificate. Keep all
+  eligibility and consumption decisions with the backend owners.
 - Keep collection-centre location search/map ownership with `nodics.location`.
 - This app may compose those capabilities into a customer journey, but must not become the owner of those backend domains.
 

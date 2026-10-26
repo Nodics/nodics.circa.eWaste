@@ -199,6 +199,9 @@ function PurchaseForm({
     [own, setOwn] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [recoveryAllowed, setRecoveryAllowed] = useState(false);
+  const [compensated, setCompensated] = useState<PurchaseReference>();
+  const [retired, setRetired] = useState<PurchaseReference[]>([]);
+  const statusGeneration = useRef(0);
   const active = useRef(true),
     key = useRef("");
   if (!key.current) key.current = retained.value?.key || commandKey();
@@ -206,6 +209,7 @@ function PurchaseForm({
     active.current = true;
     return () => {
       active.current = false;
+      statusGeneration.current++;
     };
   }, []);
   useEffect(
@@ -461,12 +465,14 @@ function PurchaseForm({
   async function readStatus() {
     const original = pending || review;
     if (!original || !session) return;
+    const generation = ++statusGeneration.current;
+    setCompensated(undefined);
     setRecoveryAllowed(false);
     const result = await request<Completion>(
       `/nodics/checkoutCore/v0/checkouts/commands/${encodeURIComponent(original.key)}`,
       session,
     );
-    if (!active.current) return;
+    if (!active.current || generation !== statusGeneration.current) return;
     if (result.scopeQualified === true) {
       if (
         result.orderCode !== original.orderCode ||
@@ -481,7 +487,7 @@ function PurchaseForm({
         `/nodics/checkoutCore/v0/checkouts/${encodeURIComponent(original.orderCode)}`,
         session,
       );
-      if (!active.current) return;
+      if (!active.current || generation !== statusGeneration.current) return;
       if (
         completed.status !== "COMPLETED" ||
         completed.code !== original.orderCode
@@ -500,6 +506,9 @@ function PurchaseForm({
       setReceipt(original.orderCode);
       onComplete();
     } else {
+      if (result.status === "COMPENSATED" && result.scopeQualified === true) {
+        setCompensated({ key: original.key, cartCode: original.cartCode, orderCode: original.orderCode });
+      }
       setRecoveryAllowed(
         result.scopeQualified === true &&
           result.status === "COMPENSATION_REQUIRED" &&
@@ -545,6 +554,32 @@ function PurchaseForm({
       if (active.current) setError(fail(cause));
     } finally {
       if (active.current) setBusy(false);
+    }
+  }
+  /** Retire only the exact owner-confirmed terminal intent; never dispatch a new purchase. */
+  function startNewPurchase() {
+    const original = pending || review;
+    if (busy || !storageKey || !compensated || !original ||
+      original.key !== compensated.key || original.cartCode !== compensated.cartCode ||
+      original.orderCode !== compensated.orderCode) return;
+    try {
+      const nextKey = commandKey();
+      clearPendingReference(storageKey, compensated, isPurchaseReference);
+      statusGeneration.current++;
+      setRetired(previous => [...previous, compensated]);
+      setCompensated(undefined);
+      setPending(undefined);
+      setReview(undefined);
+      setReviewOpen(false);
+      setAttempted(false);
+      setRecoveryAllowed(false);
+      setCertificates([]);
+      setReceipt(undefined);
+      setOwn(false);
+      setError("");
+      key.current = nextKey;
+    } catch (cause) {
+      setError(fail(cause));
     }
   }
   return (
@@ -653,6 +688,7 @@ function PurchaseForm({
                   <button disabled={busy} onClick={() => void inspect()}>
                     <RefreshCw size={17} /> Check original purchase
                   </button>
+                  {compensated && <button disabled={busy} onClick={startNewPurchase}>Start a new purchase</button>}
                   {recoveryAllowed && (
                     <button disabled={busy} onClick={() => void resume()}>
                       <ArrowRight size={17} /> Continue original purchase
@@ -734,10 +770,15 @@ function PurchaseForm({
                   Continue original purchase
                 </button>
               )}
+              {compensated && <button className="primary" disabled={busy} onClick={startNewPurchase}>Start a new purchase</button>}
             </ReviewDialog>
           )}
         </>
       )}
+      {!!retired.length && <section aria-label="Previous purchase attempts">
+        <h3>Previous purchase attempts</h3>
+        {retired.map(reference => <p key={reference.key}>COMPENSATED · Reference: {reference.key} · Order: {reference.orderCode}</p>)}
+      </section>}
     </section>
   );
 }

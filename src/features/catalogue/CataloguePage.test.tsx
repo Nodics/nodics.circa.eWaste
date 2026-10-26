@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { CataloguePage, CatalogueProductPage } from "./CataloguePage";
 import { request, type Offer } from "../../api";
-import { ProductGallery } from "./ProductContent";
+import { CatalogueCard, ProductGallery, ProductSummary, ProductInformation } from "./ProductContent";
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
   request: vi.fn(),
@@ -25,8 +25,63 @@ const offer: Offer = {
   revision: "published-v1",
   imageUrl: "/media/coupon.svg",
   expiresAt: "2099-12-31T23:59:59Z",
+  expiry: { mode: "FIXED", at: "2099-12-31T23:59:59Z" },
   terms: ["Use once at the partner."],
 };
+
+it.each([false, true])("certificate-only coupons never appear to cost only zero points (quick=%s)", (quick) => {
+  const item: Offer = { ...offer, rewardPrice: 0,
+    acquisitionRequirements: { type: "CERTIFICATES", certificates: { quantity: 1 } } };
+  render(<><CatalogueCard offer={item} href="/coupons/fixture" /><ProductSummary offer={item} quick={quick} /></>);
+  expect(screen.getAllByText("1 eligible certificate")).toHaveLength(2);
+  expect(screen.queryByText(/^0$/)).toBeNull();
+});
+
+it("combined coupon prices display both points and the required certificates", () => {
+  const item: Offer = { ...offer,
+    acquisitionRequirements: { type: "BOTH", certificates: { quantity: 2 } } };
+  const view = render(<><CatalogueCard offer={item} href="/coupons/fixture" /><ProductSummary offer={item} /></>);
+  expect(view.container.querySelector(".catalogue-card-price")).toHaveTextContent("10 points + 2 eligible certificates");
+  expect(view.container.querySelector(".catalogue-product-price")).toHaveTextContent("10 reward points + 2 eligible certificates");
+});
+
+it.each([
+  [{ mode: "NONE" }, "No expiry"],
+  [null, "Validity not provided"],
+  [undefined, "Validity not provided"],
+  [{ mode: "FIXED", at: "not-a-date" }, "Validity not provided"],
+  [{ mode: "FIXED", at: "2099-12-31T12:00:00Z" }, "Valid until 31/12/2099"],
+] as const)("renders owner expiry %j consistently without inferring from expiresAt", (expiry, label) => {
+  const item: Offer = { ...offer, expiry };
+  render(<><CatalogueCard offer={item} href="/coupons/fixture" /><ProductSummary offer={item} /><ProductInformation offer={item} /></>);
+  expect(screen.getAllByText(label)).toHaveLength(2);
+  expect(screen.getByText(text => text.includes("Issued by") && text.includes(label))).toBeVisible();
+});
+
+it.each([false, true])(
+  "asset summary separates rewards from bundle credits (quick=%s)",
+  (quick) => {
+    render(
+      <ProductSummary
+        offer={{ ...offer, kind: "ASSET", carbonUnits: 42 }}
+        quick={quick}
+      />,
+    );
+    expect(
+      screen.getByText(
+        /Reward points and carbon reward units stay with the contributor/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Only separately selected realized, available carbon credits/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/carbon units transfer with ownership/),
+    ).toBeNull();
+  },
+);
 const listing = {
   kind: "COUPON",
   items: [offer],

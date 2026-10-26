@@ -84,7 +84,7 @@ it.each(["/account/entitlements", "/account/purchases"])("reuses shared history 
     if (url === "/nodics/digitalCore/v0/entitlements/entitlement/reveal") return reply({ status: "REVEALED", couponCode: "coupon", token: "secret-coupon-code" });
     throw Error("Unexpected owner endpoint " + url);
   });
-  render(account(path)); await screen.findByText("product");
+  render(account(path)); await screen.findByText("Product reference: product");
   expect(screen.queryByRole("button", { name: "Request order review" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Show coupon code" }));
   await screen.findByText("secret-coupon-code");
@@ -116,7 +116,9 @@ it("denied commerce scope is unavailable, not an empty list or another identity"
 });
 it("offers only accepted membership choices and requires explicit review before switching", async () => {
   const accepted = { code: "assignment", revision: 3, enterpriseCode: "two", enterpriseName: "Two" };
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ contractVersion: 1, owner: "profile", renderer: "axis.enterprise-memberships", enterpriseCode: "company", items: [
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply({ featureAvailability: { profile: { contractVersion: 1,
+    features: { enterpriseMembershipDiscovery: true, enterpriseMembershipSwitch: true } } } }))
+    .mockResolvedValue(reply({ contractVersion: 1, owner: "profile", renderer: "axis.enterprise-memberships", enterpriseCode: "company", items: [
     { ...accepted, accepted: true, status: "REGISTERED", actions: ["SWITCH"] },
     { ...accepted, code: "pending", enterpriseCode: "three", enterpriseName: "Three", accepted: false, status: "PENDING", actions: ["ACCEPT"] },
   ] }));
@@ -126,4 +128,17 @@ it("offers only accepted membership choices and requires explicit review before 
   fireEvent.click(screen.getByRole("button", { name: "Switch" })); expect(onSwitch).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Confirm switch" }));
   await waitFor(() => expect(onSwitch).toHaveBeenCalledExactlyOnceWith(accepted));
+});
+
+it("renders the canonical business name with its private reference kept separately", () => {
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const named = { ...session, enterpriseCode: "native-private-920001", enterpriseDisplayName: "GreenPerks Retail" };
+  const view = render(account("/account/carbon", named));
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("GreenPerks Retail");
+  expect(screen.getByText("Enterprise reference: native-private-920001")).toBeInTheDocument();
+  view.rerender(account("/account/carbon", { ...named, token: "fresh", enterpriseDisplayName: null }));
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Enterprise account$/);
+  expect(screen.queryByRole("heading", { name: /native-private/ })).not.toBeInTheDocument();
+  expect(screen.queryByText("GreenPerks Retail")).not.toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalled();
 });

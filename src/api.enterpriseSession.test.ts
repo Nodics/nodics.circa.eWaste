@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authenticateEnterpriseSession, endSession, enterpriseMemberships, enterpriseSessionHint, readSession,
   request, restoreSession, saveSession, setTelegramLaunch, switchEnterpriseSession, type EnterpriseSession } from "./api";
 
-const current: EnterpriseSession = { kind: "ENTERPRISE", token: "employee-access", loginId: "staff@example.test", enterpriseCode: "enterprise-one" };
+const current: EnterpriseSession = { kind: "ENTERPRISE", token: "employee-access", loginId: "staff@example.test", enterpriseCode: "enterprise-one", enterpriseDisplayName: "Canonical Enterprise One" };
 const choice = { code: "membership-two", revision: 4, enterpriseCode: "enterprise-two", enterpriseName: "Enterprise Two" };
-const scope = { principalCode: current.loginId, principalType: "human", scopes: [], deniedScopes: [] };
+const scope = { principalCode: current.loginId, principalType: "human", scopes: [], deniedScopes: [], enterprise: { code: current.enterpriseCode, displayName: current.enterpriseDisplayName } };
 const workspace = (items: unknown[] = [{ ...choice, status: "REGISTERED", accepted: true, actions: ["SWITCH"] }]) => ({
   contractVersion: 1, owner: "profile", renderer: "axis.enterprise-memberships", enterpriseCode: current.enterpriseCode, items,
 });
@@ -24,6 +24,7 @@ describe("Profile-owned Enterprise session", () => {
       .mockResolvedValueOnce(response(scope));
     const session = await authenticateEnterpriseSession(current.enterpriseCode, current.loginId, "password");
     expect(session).toEqual(current); expect(readSession()).toBeNull();
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/nodics/profile/v0/employee/browser/authenticate", "/nodics/profile/v0/identity/scopes/me"]);
     expect(fetch.mock.calls[0]).toEqual(["/nodics/profile/v0/employee/browser/authenticate", expect.objectContaining({
       method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
       body: JSON.stringify({ loginId: current.loginId, password: "password" }),
@@ -44,6 +45,20 @@ describe("Profile-owned Enterprise session", () => {
       await expect(authenticateEnterpriseSession(current.enterpriseCode, current.loginId, "password")).rejects.toThrow();
       expect(readSession()).toBeNull(); expect(enterpriseSessionHint()).toBeNull();
     });
+  it.each([undefined, {}, { code: "foreign", displayName: "Foreign name" },
+    { code: current.enterpriseCode, displayName: "" }, { code: current.enterpriseCode, displayName: { en: "Guess" } },
+    { code: current.enterpriseCode, displayName: "unsafe\nname" }])("refuses absent, foreign or malformed Enterprise projection %#", async enterprise => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(response({ authToken: current.token, loginId: current.loginId }))
+      .mockResolvedValueOnce(response({ ...scope, enterprise }));
+    await expect(authenticateEnterpriseSession(current.enterpriseCode, current.loginId, "password")).rejects.toThrow();
+    expect(readSession()).toBeNull();
+  });
+  it("retains the signed reference when Profile has no business name", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(response({ authToken: current.token, loginId: current.loginId }))
+      .mockResolvedValueOnce(response({ ...scope, enterprise: { code: current.enterpriseCode, displayName: null } }));
+    expect(await authenticateEnterpriseSession(current.enterpriseCode, current.loginId, "password"))
+      .toEqual({ ...current, enterpriseDisplayName: null });
+  });
   it("never promotes transient personal Employee proof into a stored participant session", () => {
     expect(() => saveSession({ kind: "EMPLOYEE", token: "proof", loginId: current.loginId })).toThrow();
     expect(readSession()).toBeNull();
@@ -98,9 +113,9 @@ describe("Profile-owned Enterprise session", () => {
     csrf(); saveSession(current);
     const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(response(workspace()))
       .mockResolvedValueOnce(response({ authToken: "new-access", loginId: current.loginId, enterpriseCode: choice.enterpriseCode }))
-      .mockResolvedValueOnce(response(scope));
+      .mockResolvedValueOnce(response({ ...scope, enterprise: { code: choice.enterpriseCode, displayName: "Fresh Enterprise Two" } }));
     const next = switchEnterpriseSession(current, choice); expect(readSession()).toBeNull();
-    expect(await next).toEqual({ ...current, token: "new-access", enterpriseCode: choice.enterpriseCode });
+    expect(await next).toEqual({ ...current, token: "new-access", enterpriseCode: choice.enterpriseCode, enterpriseDisplayName: "Fresh Enterprise Two" });
     expect(fetch.mock.calls[1]).toEqual(["/nodics/profile/v0/employee/browser/switch-enterprise", expect.objectContaining({
       body: JSON.stringify({ assignmentCode: choice.code, revision: choice.revision }), headers: {
         "Content-Type": "application/json", "x-enterprise-code": current.enterpriseCode, "x-csrf-token": "employee/csrf", Authorization: "Bearer " + current.token,
@@ -133,4 +148,19 @@ describe("Profile-owned Enterprise session", () => {
       headers: { "Content-Type": "application/json", "x-enterprise-code": current.enterpriseCode, "x-csrf-token": "employee/csrf" }, body: "{}",
     }));
   });
+});
+it('configuration regression C5: admits owner-validated display beyond the old browser maximum and keeps shape checks', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const name = 'Owner-approved Enterprise '.repeat(40);
+  fetch.mockResolvedValueOnce(response({ authToken: current.token, loginId: current.loginId }))
+    .mockResolvedValueOnce(response({ ...scope, enterprise: { code: current.enterpriseCode, displayName: name } }));
+  expect((await authenticateEnterpriseSession(current.enterpriseCode, current.loginId, 'password')).enterpriseDisplayName).toBe(name.trim());
+  for (const displayName of [undefined, '', '  ', { en: 'not a display string' }, 'invalid\nname']) {
+    fetch.mockResolvedValueOnce(response({ authToken: current.token, loginId: current.loginId }))
+      .mockResolvedValueOnce(response({ ...scope, enterprise: { code: current.enterpriseCode, displayName } }));
+    await expect(authenticateEnterpriseSession(current.enterpriseCode, current.loginId, 'password')).rejects.toThrow();
+  }
+  fetch.mockResolvedValueOnce(response({ authToken: current.token, loginId: current.loginId }))
+    .mockResolvedValueOnce(response({ ...scope, enterprise: { code: 'foreign', displayName: name } }));
+  await expect(authenticateEnterpriseSession(current.enterpriseCode, current.loginId, 'password')).rejects.toThrow('different Enterprise context');
 });

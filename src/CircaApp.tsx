@@ -3,6 +3,7 @@ import {
   CatalogueProductPage,
 } from "./features/catalogue/CataloguePage";
 import { AccountDashboard } from "./AccountDashboard";
+import { offerValidity } from "./features/catalogue/offerValidity";
 import { CustomerWallet, HeaderWallet } from "./CustomerWallet";
 import { CustomerWasteWorkspace } from "./features/waste/CustomerWasteWorkspace";
 import {
@@ -60,6 +61,7 @@ import {
   APP_API,
   commandKey,
   nameOf,
+  enterpriseNameOf,
   readSession,
   restoreSession,
   endSession,
@@ -356,11 +358,7 @@ function OfferCard({ offer }: { offer: Offer }) {
               <Leaf size={14} />
               {offer.carbonUnits ?? 0} carbon units
             </>
-          ) : offer.expiresAt ? (
-            `Valid until ${new Date(offer.expiresAt).toLocaleDateString("en-GB")}`
-          ) : (
-            "Claim with the issuing partner"
-          )}
+          ) : offerValidity(offer)}
         </p>
         <div className="offer-price">
           <span>
@@ -1159,11 +1157,11 @@ export function CircaApp() {
               ) : null;
             })}
           </nav>
-          <div className="header-actions">
+          <div className={`header-actions${isEnterpriseSession(session) ? " enterprise-header-actions" : ""}`}>
             {session ? (
               <>
                 <HeaderPopoverGroup>
-                  {isEnterpriseSession(session) ? <a href="/account" className="text-link enterprise-current-context" title={session.enterpriseCode}><Building2 size={18} /><span>{session.enterpriseCode}</span></a> : <AccountMenu path={path} />}
+                  {isEnterpriseSession(session) ? <a href="/account" className="text-link enterprise-current-context" title={`${enterpriseNameOf(session)} (${session.enterpriseCode})`} aria-label={`${enterpriseNameOf(session)} (${session.enterpriseCode})`}><Building2 size={18} aria-hidden="true" /><span>{enterpriseNameOf(session)}</span></a> : <AccountMenu path={path} />}
                   {!isEnterpriseSession(session) && <CustomerUpdates session={session} />}
                   {isEnterpriseSession(session) ? <a href="/wallet" className="icon-button" title="Enterprise wallet" aria-label="Enterprise wallet"><Coins size={18} /></a> : <HeaderWallet
                     wallet={wallet}

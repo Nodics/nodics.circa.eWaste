@@ -300,6 +300,26 @@ img {
 .menu-button {
   display: none;
 }
+/* Let only the Enterprise label yield space; wallet, logout and menu stay reachable. */
+.header-actions.enterprise-header-actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.enterprise-header-actions > .icon-button {
+  flex: 0 0 auto;
+}
+.enterprise-header-actions > .enterprise-current-context {
+  flex: 0 1 160px;
+  min-width: 0;
+  max-width: 160px;
+}
+.enterprise-header-actions .enterprise-current-context > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .header-actions .secondary {
   font-size: inherit;
   font-weight: inherit;

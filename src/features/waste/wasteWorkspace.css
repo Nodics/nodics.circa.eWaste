@@ -1225,3 +1225,13 @@
   align-items: center;
   gap: 16px;
 }
+.waste-certificate {
+  margin-top: 16px;
+  padding-block: 16px;
+  border-block: 1px solid #d7dfdc;
+  overflow-wrap: anywhere;
+}
+.waste-certificate h2 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}

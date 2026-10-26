@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TransactionPage } from "../../CircaApp";
 import { request, commandKey, type Offer, type Session } from "../../api";
+import {pendingReferenceKey} from '../../pendingReferences';
 vi.mock("../../api", async (original) => ({
   ...(await original<typeof import("../../api")>()),
   request: vi.fn(),
@@ -54,6 +55,83 @@ beforeEach(() => {
   vi.mocked(commandKey).mockImplementation(() => "key-" + ++n);
 });
 afterEach(cleanup);
+function retainOriginal() {
+  const storageKey = pendingReferenceKey(session, 'checkout', undefined, offer.code);
+  const reference = {key:'original',cartCode:'purchase-original-cart',orderCode:'purchase-original'};
+  sessionStorage.setItem(storageKey, JSON.stringify(reference));
+  return {storageKey,reference};
+}
+it('explicitly retires a scope-matched COMPENSATED intent without dispatch and preserves its visible reference', async()=>{
+  const {storageKey,reference}=retainOriginal();
+  call.mockResolvedValueOnce({...reference,status:'COMPENSATED',scopeQualified:true});
+  view();
+  const user=userEvent.setup();
+  await user.click(screen.getByRole('button',{name:'Check original purchase'}));
+  await user.click(await screen.findByRole('button',{name:'Start a new purchase'}));
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+  expect(screen.getByRole('region',{name:'Previous purchase attempts'})).toHaveTextContent('COMPENSATED · Reference: original');
+  expect(screen.getByRole('button',{name:'Review coupon purchase'})).toBeEnabled();
+  expect(call).toHaveBeenCalledTimes(1);
+  prepare();
+  await user.click(screen.getByRole('button',{name:'Review coupon purchase'}));
+  await screen.findByRole('dialog');
+  expect(call.mock.calls[2]?.[2]).toMatchObject({cartCode:'purchase-key-1-cart'});
+  expect(call.mock.calls.some(([path])=>/\/place$|\/resume$|refund/.test(path))).toBe(false);
+});
+it.each([
+  {status:'UNKNOWN',scopeQualified:true},
+  {status:'COMPENSATION_REQUIRED',scopeQualified:true,recoveryAction:'RESUME_COUPON_PURCHASE'},
+  {status:'COMPENSATED',scopeQualified:false},
+  {status:'COMPENSATED',scopeQualified:true,orderCode:'foreign'},
+  {status:'COMPENSATED',scopeQualified:true,cartCode:'foreign'},
+])('does not retire a nonterminal or foreign outcome %j',async outcome=>{
+  const {storageKey,reference}=retainOriginal();
+  call.mockResolvedValueOnce({...reference,...outcome});
+  view();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Check original purchase'}));
+  await screen.findByRole('alert');
+  expect(screen.queryByRole('button',{name:'Start a new purchase'})).toBeNull();
+  expect(sessionStorage.getItem(storageKey)).toBe(JSON.stringify(reference));
+});
+it('refuses to clear a newer retained reference after terminal read',async()=>{
+  const {storageKey,reference}=retainOriginal();
+  call.mockResolvedValueOnce({...reference,status:'COMPENSATED',scopeQualified:true});
+  view();
+  const user=userEvent.setup();
+  await user.click(screen.getByRole('button',{name:'Check original purchase'}));
+  const button=await screen.findByRole('button',{name:'Start a new purchase'});
+  const newer={key:'newer',cartCode:'purchase-newer-cart',orderCode:'purchase-newer'};
+  sessionStorage.setItem(storageKey,JSON.stringify(newer));
+  await user.click(button);
+  expect(sessionStorage.getItem(storageKey)).toBe(JSON.stringify(newer));
+  expect(screen.getByRole('button',{name:'Review coupon purchase'})).toBeDisabled();
+  expect(call).toHaveBeenCalledTimes(1);
+});
+it('ignores a terminal reply from an obsolete session',async()=>{
+  const {storageKey,reference}=retainOriginal();
+  let resolve!:(value:unknown)=>void;
+  call.mockReturnValueOnce(new Promise(r=>{resolve=r;}));
+  const page=view();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Check original purchase'}));
+  page.rerender(<TransactionPage {...page.props} session={{...session,token:'refreshed'}}/>);
+  await act(async()=>resolve({...reference,status:'COMPENSATED',scopeQualified:true}));
+  expect(screen.queryByRole('button',{name:'Start a new purchase'})).toBeNull();
+  expect(sessionStorage.getItem(storageKey)).toBe(JSON.stringify(reference));
+});
+it('offers explicit fresh start in the attempted purchase dialog without another placement',async()=>{
+  prepare();
+  call.mockRejectedValueOnce(new Error('Unconfirmed')).mockResolvedValueOnce({status:'COMPENSATED',scopeQualified:true,orderCode:'purchase-key-1',cartCode:'purchase-key-1-cart'});
+  view();
+  const user=await review();
+  await user.click(screen.getByRole('button',{name:'Confirm purchase'}));
+  await user.click(await screen.findByRole('button',{name:'Check purchase'}));
+  await user.click(await screen.findByRole('button',{name:'Start a new purchase'}));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('region',{name:'Previous purchase attempts'})).toHaveTextContent('key-1');
+  expect(screen.getByRole('button',{name:'Review coupon purchase'})).toBeEnabled();
+  expect(call.mock.calls.filter(([path])=>path.endsWith('/place'))).toHaveLength(1);
+  expect(sessionStorage.length).toBe(0);
+});
 function view(value = offer, owner: Session | null = session) {
   const complete = vi.fn(),
     login = vi.fn();

@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CircaApp } from "./CircaApp";
 import { API, unwrap, saveSession, type Submission } from "./api";
+import * as sessionApi from "./api";
 vi.mock("./CollectionMap", () => ({
   CollectionMap: () => <div aria-label="Collection centre map">Map</div>,
 }));
@@ -227,6 +228,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 async function signIn() {
@@ -246,6 +248,45 @@ async function signIn() {
   return user;
 }
 describe("connected Circa journeys", () => {
+  it("keeps the complete Enterprise name accessible alongside header controls", async () => {
+    const enterpriseCode = "native-private-920001";
+    const enterpriseDisplayName = "GreenPerks Retail and Community Services";
+    vi.spyOn(sessionApi, "restoreSession").mockResolvedValue({
+      kind: "ENTERPRISE", token: "employee-token", loginId: "staff", enterpriseCode, enterpriseDisplayName,
+    });
+    render(<CircaApp />);
+    const accountLink = await screen.findByRole("link", { name: `${enterpriseDisplayName} (${enterpriseCode})` });
+    expect(accountLink).toHaveAttribute("title", `${enterpriseDisplayName} (${enterpriseCode})`);
+    expect(accountLink).toHaveAttribute("href", "/account");
+    expect(accountLink.querySelector("span")).toHaveTextContent(enterpriseDisplayName);
+    expect(accountLink.closest(".header-actions")).toHaveClass("enterprise-header-actions");
+    const header = within(screen.getByRole("banner"));
+    expect(header.getByRole("link", { name: "Enterprise wallet" })).toHaveAttribute("href", "/wallet");
+    expect(header.getByRole("button", { name: "Log out" })).toBeEnabled();
+    const menu = header.getByRole("button", { name: "Toggle navigation" });
+    await userEvent.setup().click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps an unnamed Enterprise generic in the header and preserves its reference", async () => {
+    vi.spyOn(sessionApi, "restoreSession").mockResolvedValue({
+      kind: "ENTERPRISE", token: "employee-token", loginId: "staff", enterpriseCode: "native-private-920001", enterpriseDisplayName: null,
+    });
+    render(<CircaApp />);
+    const accountLink = await screen.findByRole("link", { name: "Enterprise account (native-private-920001)" });
+    expect(accountLink.querySelector("span")).toHaveTextContent(/^Enterprise account$/);
+    expect(accountLink).toHaveAttribute("title", "Enterprise account (native-private-920001)");
+  });
+
+  it("preserves personal header controls without Enterprise layout constraints", async () => {
+    render(<CircaApp />);
+    await signIn();
+    const header = within(screen.getByRole("banner"));
+    const accountLink = header.getByRole("link", { name: "My Account" });
+    expect(accountLink.closest(".header-actions")).not.toHaveClass("enterprise-header-actions");
+    expect(header.getByRole("button", { name: "Log out" })).toBeEnabled();
+    expect(header.getByRole("button", { name: "Toggle navigation" })).toBeEnabled();
+  });
   it.each([true, false])("uses the Engagement contact owner and requires its receipt (acknowledged=%s)", async acknowledged => {
     const original = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation(async (...args) => {

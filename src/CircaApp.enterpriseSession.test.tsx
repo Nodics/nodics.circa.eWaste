@@ -16,7 +16,7 @@ beforeEach(() => {
     const path = String(url); calls.push({ path, options });
     if (path.endsWith("/employee/browser/restore") || path.endsWith("/employee/browser/authenticate"))
       return response({ authToken: session.token, loginId: session.loginId });
-    if (path.endsWith("/identity/scopes/me")) return response({ principalCode: "staff", principalType: "human", scopes: [], deniedScopes: [] });
+    if (path.endsWith("/identity/scopes/me")) return response({ principalCode: "staff", principalType: "human", scopes: [], deniedScopes: [], enterprise: { code: "company", displayName: "Canonical Company" } });
     if (path.endsWith("/employee/browser/logout")) return response({ signedOut: true });
     if (path.endsWith("/experience")) return response({ presentation: {}, centres: [], categories: [], itemTypes: [] });
     if (path.endsWith("/marketplace")) return response({ assets: [], coupons: [] });
@@ -56,7 +56,7 @@ it("keeps personal Employee participation separate from Enterprise sign-in", asy
   fireEvent.change(screen.getByLabelText("Employee login"), { target: { value: "staff" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password" } });
   fireEvent.submit(screen.getByRole("form", { name: "Enterprise sign in" }));
-  await waitFor(() => expect(onLogin).toHaveBeenCalledWith(session));
+  await waitFor(() => expect(onLogin).toHaveBeenCalledWith({ ...session, enterpriseDisplayName: "Canonical Company" }));
   expect(calls.map(call => call.path)).toEqual(["/nodics/profile/v0/employee/browser/authenticate", "/nodics/profile/v0/identity/scopes/me"]);
 });
 it("requires a governed Commerce binding before Enterprise checkout without a personal fallback", () => {

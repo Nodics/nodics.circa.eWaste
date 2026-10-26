@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { request, type Session } from "./api";
 import "./CommercePurchase.css";
+import { readableCode } from "./holdingPresentation";
 
 export type CertificateSelection = {
   code: string;
@@ -179,7 +180,7 @@ export function CertificatePicker({
               <span>
                 <strong>
                   {[row.brandCode, row.modelCode].filter(Boolean).join(" ") ||
-                    row.categoryCode ||
+                    (row.categoryCode && readableCode(row.categoryCode)) ||
                     "Certificate"}
                 </strong>
                 <small>{row.code}</small>

@@ -22,6 +22,17 @@ type ReviewRequest = {
   comment: string;
   idempotencyKey: string;
 };
+export type ReviewEligibility = { eligible: boolean; resolutions: string[]; reasonCode: string };
+/** Missing or malformed owner decisions never advertise a customer command. */
+export function reviewEligibility(value: unknown): ReviewEligibility | undefined {
+  const item = value as ReviewEligibility | undefined;
+  if (!item || typeof item.eligible !== "boolean" || !Array.isArray(item.resolutions) ||
+    item.resolutions.length > 4 || new Set(item.resolutions).size !== item.resolutions.length ||
+    item.resolutions.some(type => !["DISPUTE", "CANCELLATION", "RETURN", "REFUND"].includes(type)) ||
+    typeof item.reasonCode !== "string" || item.reasonCode.length > 128 ||
+    item.eligible !== (item.resolutions.length > 0)) return undefined;
+  return item;
+}
 /** Validates history before rendering or enabling another reviewed command. */
 function reviewCases(value: unknown, orderCode: string): Case[] {
   const rows = (value as { cases?: unknown } | null)?.cases;
@@ -36,7 +47,7 @@ function reviewCases(value: unknown, orderCode: string): Case[] {
         item.code.length > 192 ||
         typeof item.status !== "string" ||
         item.status.length > 64 ||
-        !["DISPUTE", "CANCELLATION", "REFUND"].includes(
+        !["DISPUTE", "CANCELLATION", "RETURN", "REFUND"].includes(
           item.requestedResolution,
         ) ||
         (item.decision &&
@@ -72,15 +83,18 @@ function reviewCases(value: unknown, orderCode: string): Case[] {
 export function OrderReview({
   code,
   session,
+  eligibility,
 }: {
   code: string;
   session: Session;
+  eligibility?: ReviewEligibility;
 }) {
   const [open, setOpen] = useState(false),
     [snapshot, setSnapshot] = useState<{
       session: Session;
       code: string;
       cases: Case[];
+      eligibility?: ReviewEligibility;
     }>(),
     [resolution, setResolution] = useState("DISPUTE"),
     [comment, setComment] = useState(""),
@@ -95,6 +109,8 @@ export function OrderReview({
     snapshot?.session === session && snapshot.code === code
       ? snapshot.cases
       : undefined;
+  const currentEligibility = cases ? snapshot?.eligibility : undefined;
+  const allowed = currentEligibility?.eligible === true ? currentEligibility.resolutions : [];
   useEffect(() => {
     generation.current++;
     controller.current?.abort();
@@ -117,18 +133,18 @@ export function OrderReview({
     controller.current?.abort();
     const abort = new AbortController();
     controller.current = abort;
-    const data = reviewCases(
-      await request<unknown>(
+    const response = await request<{ reviewEligibility?: unknown }>(
         `${API}/purchases/${encodeURIComponent(code)}/reviews`,
         session,
         undefined,
         "GET",
         { signal: abort.signal },
-      ),
-      code,
-    );
-    if (attempt === generation.current)
-      setSnapshot({ session, code, cases: data });
+      );
+    const data = reviewCases(response, code), decision = reviewEligibility(response?.reviewEligibility);
+    if (attempt === generation.current) {
+      setSnapshot({ session, code, cases: data, eligibility: decision });
+      if (!uncertain) setResolution(decision?.resolutions[0] || "");
+    }
   };
   /** Explicit inspection never replays a concern or changes its recovery identity. */
   const inspect = async () => {
@@ -157,7 +173,7 @@ export function OrderReview({
   };
   /** Preserves the original command on uncertainty; a confirmed case still requires fresh history. */
   const submit = async () => {
-    if (inFlight.current || !cases) return;
+    if (inFlight.current || !cases || !allowed.includes(uncertain?.requestedResolution || resolution)) return;
     const attempt = generation.current;
     const input: ReviewRequest = uncertain || {
       confirmed: true,
@@ -212,6 +228,7 @@ export function OrderReview({
       }
     }
   };
+  if (reviewEligibility(eligibility)?.eligible !== true) return null;
   return (
     <>
       <button
@@ -230,8 +247,7 @@ export function OrderReview({
           }}
         >
           <p>
-            Request a cancellation, refund review or help with a disputed
-            purchase. A moderator reviews the case. Submitting this request does
+            A moderator reviews the case. Submitting this request does
             not move points, change ownership or issue a refund.
           </p>
           <button
@@ -266,9 +282,7 @@ export function OrderReview({
               value={resolution}
               onChange={(event) => setResolution(event.target.value)}
             >
-              <option value="DISPUTE">Purchase dispute</option>
-              <option value="CANCELLATION">Cancellation review</option>
-              <option value="REFUND">Refund review</option>
+              {allowed.map(type => <option key={type} value={type}>{({ DISPUTE: "Purchase dispute", CANCELLATION: "Cancellation review", RETURN: "Return review", REFUND: "Refund review" } as Record<string, string>)[type]}</option>)}
             </select>
           </label>
           <label>
@@ -295,7 +309,7 @@ export function OrderReview({
           )}
           <button
             className="primary"
-            disabled={busy || !cases || comment.trim().length < 10}
+            disabled={busy || !cases || !allowed.includes(uncertain?.requestedResolution || resolution) || comment.trim().length < 10}
             onClick={() => void submit()}
           >
             {busy

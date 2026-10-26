@@ -4,6 +4,7 @@ import { RewardTransfer } from "./RewardTransfer";
 import { CarbonHoldings } from "./CarbonHoldings";
 import { PartnerRewardConversion } from "./PartnerRewardConversion";
 import { HeaderPopover } from "./HeaderPopover";
+import { WalletHistory } from "./WalletHistory";
 
 /** Displays balances and ledger entries supplied by the Loyalty-owned wallet API. */
 export function CustomerWallet({
@@ -47,41 +48,43 @@ export function CustomerWallet({
         <PartnerRewardConversion session={session} onComplete={onRefresh} />
       )}
       {session && <CarbonHoldings session={session} />}
-      <h2>Recent transactions</h2>
-      <div className="ledger">
-        {wallet.entries.map((entry) => (
-          <div key={entry.code}>
-            <span className="ledger-icon">
-              {entry.rewardTypeCode === "points" ? (
-                <Coins size={20} />
-              ) : (
-                <Leaf size={20} />
-              )}
-            </span>
-            <span>
-              <strong>
-                {entry.entryType.replaceAll("_", " ").toLowerCase()}
-              </strong>
-              <small>
-                {entry.sourceCode} ·{" "}
-                {new Date(entry.postedAt).toLocaleDateString("en-GB")}
-              </small>
-            </span>
-            <span>
-              <strong>{entry.amount}</strong>
-              <small>
-                {entry.rewardTypeCode === "points" ? "points" : "carbon units"}
-              </small>
-            </span>
+      <WalletHistory
+        key={session?.token || wallet.wallet.code}
+        entries={wallet.entries}
+      >
+        {(entries) => (
+          <div className="ledger">
+            {entries.map((entry) => (
+              <div key={entry.code}>
+                <span className="ledger-icon">
+                  {entry.rewardTypeCode === "points" ? (
+                    <Coins size={20} />
+                  ) : (
+                    <Leaf size={20} />
+                  )}
+                </span>
+                <span>
+                  <strong>
+                    {entry.entryType.replaceAll("_", " ").toLowerCase()}
+                  </strong>
+                  <small>
+                    {entry.sourceCode} ·{" "}
+                    {new Date(entry.postedAt).toLocaleDateString("en-GB")}
+                  </small>
+                </span>
+                <span>
+                  <strong>{entry.amount}</strong>
+                  <small>
+                    {entry.rewardTypeCode === "points"
+                      ? "points"
+                      : "carbon units"}
+                  </small>
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-        {!wallet.entries.length && (
-          <p>
-            Your first transaction will appear here after approval or a
-            purchase.
-          </p>
         )}
-      </div>
+      </WalletHistory>
     </>
   );
 }

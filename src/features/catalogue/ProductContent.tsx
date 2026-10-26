@@ -5,15 +5,23 @@ import { publishedArtwork } from "../../cms";
 import { ItemSpecifications } from "../submission/ItemDetailsCard";
 import { EnvironmentalImpactCard } from "../submission/EnvironmentalImpactCard";
 import "./catalogue.css";
+import { offerValidity } from "./offerValidity";
 
 export const humanize = (value?: string | null) =>
   !value || value === "UNKNOWN"
     ? "Not established"
     : value.toLowerCase().replaceAll("_", " ");
-export const expiryLabel = (value?: string) =>
-  value && Number.isFinite(Date.parse(value))
-    ? new Date(value).toLocaleDateString("en-GB")
-    : "Not provided";
+/** Displays the owner's declared coupon consideration without implying a certificate offer is free. */
+function PurchaseCost({ offer, pointsLabel }: { offer: Offer; pointsLabel: string }) {
+  const requirement = offer.kind === "COUPON" ? offer.acquisitionRequirements : null;
+  const quantity = requirement?.certificates?.quantity;
+  const certificateLabel = Number.isSafeInteger(quantity) && Number(quantity) > 0
+    ? `${quantity} eligible certificate${quantity === 1 ? "" : "s"}`
+    : "Eligible certificates required";
+  if (requirement?.type === "CERTIFICATES") return <strong>{certificateLabel}</strong>;
+  return <><strong>{offer.rewardPrice.toLocaleString()}</strong> {pointsLabel}
+    {requirement?.type === "BOTH" && <> + {certificateLabel}</>}</>;
+}
 /** Renders only published product imagery; unavailable images have an honest placeholder. */
 export function ProductImage({ url, name }: { url?: string; name: string }) {
   const [failed, setFailed] = useState(false);
@@ -89,13 +97,11 @@ export function CatalogueCard({
         <p className="catalogue-card-facts">
           {offer.kind === "ASSET"
             ? humanize(offer.condition || offer.descriptor?.condition.value)
-            : offer.expiresAt
-              ? `Valid until ${expiryLabel(offer.expiresAt)}`
-              : "Validity not provided"}
+            : offerValidity(offer)}
         </p>
         <div className="catalogue-card-price">
           <Coins size={16} />
-          <strong>{offer.rewardPrice.toLocaleString()}</strong> points
+          <PurchaseCost offer={offer} pointsLabel="points" />
         </div>
         <a className="catalogue-detail-link" href={href}>
           View details <ArrowUpRight size={16} />
@@ -162,7 +168,7 @@ export function ProductSummary({
       </p>
       <p className="catalogue-product-price">
         <Coins size={23} />
-        <strong>{offer.rewardPrice.toLocaleString()}</strong> reward points
+        <PurchaseCost offer={offer} pointsLabel="reward points" />
       </p>
       <dl className="catalogue-summary-facts">
         {offer.kind === "ASSET" ? (
@@ -185,8 +191,8 @@ export function ProductSummary({
               <dd>{offer.issuer || "Not provided"}</dd>
             </div>
             <div>
-              <dt>Valid until</dt>
-              <dd>{expiryLabel(offer.expiresAt)}</dd>
+              <dt>Validity</dt>
+              <dd>{offerValidity(offer)}</dd>
             </div>
           </>
         )}
@@ -200,7 +206,9 @@ export function ProductSummary({
       {offer.kind === "ASSET" && (
         <p className="catalogue-carbon">
           <Leaf size={16} />
-          {offer.carbonUnits ?? 0} carbon units transfer with ownership.
+          Reward points and carbon reward units stay with the contributor. Only
+          separately selected realized, available carbon credits can be included
+          in a bundle; certificate ownership does not include them.
         </p>
       )}
       {quick && offer.kind === "COUPON" && (
@@ -272,9 +280,7 @@ export function ProductInformation({ offer }: { offer: Offer }) {
             <p>{offer.description || offer.name}</p>
             <p>
               Issued by {offer.issuer || "the publishing partner"}.{" "}
-              {offer.expiresAt
-                ? `Valid until ${expiryLabel(offer.expiresAt)}.`
-                : "An expiry date has not been provided."}
+              {offerValidity(offer)}.
             </p>
           </details>
           <details open>

@@ -611,12 +611,12 @@ it("keeps carbon selections across owner pages and clears them on explicit refre
   await user.type(screen.getByLabelText("Quantity lot-one"), "1.001");
   await user.click(screen.getByRole("button", { name: "Next carbon page" }));
   await screen.findByRole("checkbox", { name: "Select carbon lot-two" });
-  expect(screen.getByText("lot-one: 1.001 tCO2e")).toBeInTheDocument();
+  expect(screen.getByText("Carbon holding · lot-one: 1.001 tCO2e")).toBeInTheDocument();
   await user.click(
     screen.getByRole("button", { name: "Refresh carbon holdings" }),
   );
   await screen.findByRole("checkbox", { name: "Select carbon lot-two" });
-  expect(screen.queryByText("lot-one: 1.001 tCO2e")).toBeNull();
+  expect(screen.queryByText("Carbon holding · lot-one: 1.001 tCO2e")).toBeNull();
 });
 it("replaced owner publication evidence cannot be displayed as success", async () => {
   const original = vi.mocked(request).getMockImplementation()!;

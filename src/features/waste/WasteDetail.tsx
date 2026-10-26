@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -247,6 +242,97 @@ export function WasteDetailView({
           </p>
           <h1>{wasteName(item)}</h1>
           <WasteStatus item={item} />
+          {item.resource === "assets" && (
+            <section
+              className="waste-certificate"
+              aria-label={copy(
+                "certificateEvidence",
+                "Digital certificate evidence",
+              )}
+            >
+              <h2>{copy("certificateHeading", "Digital certificate")}</h2>
+              <dl className="waste-key-facts">
+                <div>
+                  <dt>
+                    {copy("certificateReference", "Certificate reference")}
+                  </dt>
+                  <dd>{item.code}</dd>
+                </div>
+                <div>
+                  <dt>
+                    {copy("certificateOwnershipStatus", "Ownership status")}
+                  </dt>
+                  <dd>{item.status.label}</dd>
+                </div>
+                <div>
+                  <dt>
+                    {copy("certificateReviewDecision", "Review decision")}
+                  </dt>
+                  <dd>{readable(descriptor.review.decision)}</dd>
+                </div>
+                <div>
+                  <dt>{copy("certificateReviewed", "Reviewed")}</dt>
+                  <dd>
+                    {displayDate(item.reviewedAt) ||
+                      copy("certificateDateMissing", "Not recorded")}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                {copy(
+                  "certificateEvidenceScope",
+                  "Recorded item and review evidence. Ownership does not confirm completed recycling or carbon credit issuance.",
+                )}
+              </p>
+              {data.history.length ? (
+                <ul>
+                  {data.history.map((event) => (
+                    <li key={event.code}>
+                      {event.label} · {displayDate(event.at)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>
+                  {copy(
+                    "certificateHistoryMissing",
+                    "No dated lifecycle evidence is available for this certificate yet.",
+                  )}
+                </p>
+              )}
+              <p>
+                {descriptor.environment.assessment ? (
+                  <>
+                    {copy(
+                      "certificateAssessmentStatus",
+                      "Environmental assessment",
+                    )}
+                    : {readable(descriptor.environment.assessment.status)}
+                  </>
+                ) : (
+                  copy(
+                    "certificateAssessmentMissing",
+                    "Environmental assessment not available.",
+                  )
+                )}
+              </p>
+              {!quick &&
+                availableSections.some(
+                  (value) => value.code === "environment",
+                ) && (
+                  <button
+                    className="waste-text-button"
+                    onClick={() => setSection("environment")}
+                  >
+                    {copy(
+                      "certificateViewAssessment",
+                      "View assessment evidence",
+                    )}{" "}
+                    <ArrowUpRight size={17} />
+                  </button>
+                )}
+            </section>
+          )}
           <p className="waste-item-description">
             {descriptor.identity.description ||
               copy(
@@ -425,8 +511,20 @@ export function WasteDetailView({
                 </div>
               )}
               {value.code === "environment" && (
-                <><EnvironmentalImpactCard assessment={descriptor.environment.assessment || undefined}/>
-                  {data.impactHistory && <ImpactAssessmentHistory key={item.code} initial={data.impactHistory} endpoint={endpoint} code={item.code} session={session}/>}</>
+                <>
+                  <EnvironmentalImpactCard
+                    assessment={descriptor.environment.assessment || undefined}
+                  />
+                  {data.impactHistory && (
+                    <ImpactAssessmentHistory
+                      key={item.code}
+                      initial={data.impactHistory}
+                      endpoint={endpoint}
+                      code={item.code}
+                      session={session}
+                    />
+                  )}
+                </>
               )}
               {value.code === "history" && (
                 <div className="waste-history">
@@ -490,7 +588,7 @@ export function WasteDetailView({
                   <p>
                     {copy(
                       "ownershipTerms",
-                      "This experience transfers digital asset ownership. Physical delivery is not included.",
+                      "This experience transfers digital certificate ownership. Physical delivery is not included.",
                     )}
                   </p>
                   <dl className="waste-key-facts">
@@ -509,8 +607,8 @@ export function WasteDetailView({
                     <div>
                       <dt>
                         {copy(
-                          "attachedCarbon",
-                          "Attached carbon units",
+                          "illustrativeCarbonRecord",
+                          "Illustrative carbon units (historical record)",
                         )}
                       </dt>
                       <dd>
@@ -527,8 +625,8 @@ export function WasteDetailView({
                   </dl>
                   <p>
                     {copy(
-                      "rewardOwnership",
-                      "Original approval rewards stay with the contributor. Attached carbon units move with asset ownership; they are not issued carbon credits.",
+                      "certificateRewardSeparation",
+                      "Reward points and carbon reward units stay with the contributor. Certificate ownership does not transfer these rewards. Only separately selected realized, available carbon credits can be included in a bundle; illustrative units are not issued carbon credits.",
                     )}
                   </p>
                   {data.relatedAsset && (

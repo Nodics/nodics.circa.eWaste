@@ -5,7 +5,11 @@
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { request, type Session, type Offer } from "./api";
-import { OrderReview } from "./OrderReview";
+import {
+  OrderReview,
+  reviewEligibility,
+  type ReviewEligibility,
+} from "./OrderReview";
 import "./purchaseReview.css";
 type Entitlement = {
   ownerRef?: { type: "CUSTOMER" | "ENTERPRISE"; code: string };
@@ -27,6 +31,7 @@ type Entitlement = {
   };
   code: string;
   productCode: string;
+  productName?: string;
   orderCode: string;
   claimStatus: string;
   purchasedAt: string;
@@ -35,7 +40,14 @@ type Entitlement = {
 };
 type Purchases = {
   orders: {
-    evidence?: { ownerRef?: { module: "profile"; schema: "customer" | "enterprise"; code: string } };
+    reviewEligibility?: ReviewEligibility;
+    evidence?: {
+      ownerRef?: {
+        module: "profile";
+        schema: "customer" | "enterprise";
+        code: string;
+      };
+    };
     code: string;
     totalAmount: string;
     currency: string;
@@ -69,10 +81,14 @@ function purchases(value: Purchases, session: Session): Purchases {
         !item ||
         !bounded(item.code) ||
         !bounded(item.productCode) ||
+        (item.productName !== undefined &&
+          (!bounded(item.productName, 4000) ||
+            /[\u0000-\u001f\u007f]/.test(item.productName))) ||
         !bounded(item.orderCode) ||
         !bounded(item.status, 64) ||
         !bounded(item.digitalDeliveryType, 64) ||
-        (item.digitalDeliveryType === "COUPON_CODE" && !bounded(item.providerCode)) ||
+        (item.digitalDeliveryType === "COUPON_CODE" &&
+          !bounded(item.providerCode)) ||
         !bounded(item.claimStatus, 64) ||
         !bounded(item.purchasedAt, 64) ||
         !Number.isFinite(Date.parse(item.purchasedAt)) ||
@@ -91,23 +107,47 @@ function purchases(value: Purchases, session: Session): Purchases {
       "Purchase history could not be confirmed. Refresh before using a coupon.",
     );
   // Merchant enterpriseCode is storage namespace, never evidence of the buyer.
-  if (session.kind === "ENTERPRISE" && (
-    value.entitlements.some(item => item.ownerRef?.type !== "ENTERPRISE" || item.ownerRef.code !== session.enterpriseCode ||
-      item.ownerId !== session.enterpriseCode || item.participantEnterpriseCode !== session.enterpriseCode) ||
-    value.orders.some(item => item.evidence?.ownerRef?.module !== "profile" ||
-      item.evidence.ownerRef.schema !== "enterprise" || item.evidence.ownerRef.code !== session.enterpriseCode)
-  )) throw new Error("Enterprise purchase ownership could not be confirmed.");
-  if (session.kind !== "ENTERPRISE" && (value.entitlements.some(item => item.ownerRef?.type === "ENTERPRISE") ||
-    value.orders.some(item => item.evidence?.ownerRef?.schema === "enterprise")))
+  if (
+    session.kind === "ENTERPRISE" &&
+    (value.entitlements.some(
+      (item) =>
+        item.ownerRef?.type !== "ENTERPRISE" ||
+        item.ownerRef.code !== session.enterpriseCode ||
+        item.ownerId !== session.enterpriseCode ||
+        item.participantEnterpriseCode !== session.enterpriseCode,
+    ) ||
+      value.orders.some(
+        (item) =>
+          item.evidence?.ownerRef?.module !== "profile" ||
+          item.evidence.ownerRef.schema !== "enterprise" ||
+          item.evidence.ownerRef.code !== session.enterpriseCode,
+      ))
+  )
+    throw new Error("Enterprise purchase ownership could not be confirmed.");
+  if (
+    session.kind !== "ENTERPRISE" &&
+    (value.entitlements.some((item) => item.ownerRef?.type === "ENTERPRISE") ||
+      value.orders.some(
+        (item) => item.evidence?.ownerRef?.schema === "enterprise",
+      ))
+  )
     throw new Error("Personal purchase ownership could not be confirmed.");
   return {
     orders: value.orders.map(
-      ({ code, totalAmount, currency, created, status }) => ({
+      ({
         code,
         totalAmount,
         currency,
         created,
         status,
+        reviewEligibility: decision,
+      }) => ({
+        code,
+        totalAmount,
+        currency,
+        created,
+        status,
+        reviewEligibility: reviewEligibility(decision),
       }),
     ),
     entitlements: value.entitlements.map((item) => {
@@ -141,6 +181,9 @@ function purchases(value: Purchases, session: Session): Purchases {
       return {
         code: item.code,
         productCode: item.productCode,
+        ...(item.productName === undefined
+          ? {}
+          : { productName: item.productName }),
         orderCode: item.orderCode,
         status: item.status,
         digitalDeliveryType: item.digitalDeliveryType,
@@ -188,11 +231,26 @@ export function PurchaseHistory({
     setRevealed({});
     setBusy("");
     Promise.all([
-      request<Purchases["orders"]>("/nodics/order/v0/orders?limit=100", session, undefined, "GET", { signal: controller.signal }),
-      request<Pick<Purchases, "entitlements">>("/nodics/digitalCore/v0/entitlements", session, undefined, "GET", { signal: controller.signal }),
+      request<Purchases["orders"]>(
+        "/nodics/order/v0/orders?limit=100",
+        session,
+        undefined,
+        "GET",
+        { signal: controller.signal },
+      ),
+      request<Pick<Purchases, "entitlements">>(
+        "/nodics/digitalCore/v0/entitlements",
+        session,
+        undefined,
+        "GET",
+        { signal: controller.signal },
+      ),
     ])
       .then(([orders, issued]) => {
-        const data = purchases({ orders, entitlements: issued?.entitlements }, session);
+        const data = purchases(
+          { orders, entitlements: issued?.entitlements },
+          session,
+        );
         if (active) setSnapshot({ session, data });
       })
       .catch((e) => {
@@ -258,12 +316,19 @@ export function PurchaseHistory({
               {data.entitlements.map((e) => (
                 <article className="conversation-card" key={e.code}>
                   <span className="eyebrow">
-                    {e.digitalDeliveryType === "COUPON_CODE" ? "Owned coupon" : "Digital entitlement"} · {e.claimStatus.toLowerCase()}
+                    {e.digitalDeliveryType === "COUPON_CODE"
+                      ? "Owned coupon"
+                      : "Digital entitlement"}{" "}
+                    · {e.claimStatus.toLowerCase()}
                   </span>
                   <h3>
-                    {offers.find((o) => o.code === e.productCode)?.name ||
-                      e.productCode}
+                    {e.productName ||
+                      offers.find((o) => o.code === e.productCode)?.name ||
+                      (e.digitalDeliveryType === "COUPON_CODE"
+                        ? "Purchased coupon"
+                        : "Purchased digital item")}
                   </h3>
+                  <p>Product reference: {e.productCode}</p>
                   <p>
                     Purchased{" "}
                     {new Date(e.purchasedAt).toLocaleDateString("en-GB")}
@@ -285,7 +350,8 @@ export function PurchaseHistory({
                       </ul>
                     </details>
                   )}
-                  {e.digitalDeliveryType === "COUPON_CODE" && e.status === "ACTIVE" &&
+                  {e.digitalDeliveryType === "COUPON_CODE" &&
+                    e.status === "ACTIVE" &&
                     e.claimStatus !== "REDEEMED" &&
                     (!e.validTo ||
                       (Number.isFinite(Date.parse(e.validTo)) &&
@@ -317,7 +383,8 @@ export function PurchaseHistory({
                             const token = result.token;
                             if (
                               result.status !== "REVEALED" ||
-                              result.couponCode !== e.providerCode || result.tokenAvailable === false ||
+                              result.couponCode !== e.providerCode ||
+                              result.tokenAvailable === false ||
                               typeof token !== "string" ||
                               !token ||
                               token.length > 2048
@@ -377,7 +444,8 @@ export function PurchaseHistory({
                         )}
                       {e.evidence?.merchantRedemption?.merchantCode && (
                         <p>
-                          Merchant: {e.evidence.merchantRedemption.merchantCode}
+                          Merchant reference:{" "}
+                          {e.evidence.merchantRedemption.merchantCode}
                         </p>
                       )}
                       {e.evidence?.merchantRedemption?.storeRef?.moduleName ===
@@ -411,7 +479,13 @@ export function PurchaseHistory({
                       {o.totalAmount} {o.currency.toLowerCase()}
                     </strong>
                     <small>{o.code}</small>
-                    {session.kind !== "ENTERPRISE" && <OrderReview code={o.code} session={session} />}
+                    {session.kind !== "ENTERPRISE" && (
+                      <OrderReview
+                        code={o.code}
+                        session={session}
+                        eligibility={o.reviewEligibility}
+                      />
+                    )}
                   </span>
                   <time>{new Date(o.created).toLocaleDateString("en-GB")}</time>
                 </div>

@@ -20,6 +20,22 @@ Domain key format/length and replay semantics remain backend-owned.
 
 ## Shared Purchase And Certificate Selection
 
+Catalogue cards, quick view and product summaries display the backend's declared
+coupon acquisition requirements. Certificate-only offers show their certificate
+requirement instead of a misleading zero-point price; combined offers show both
+points and certificates. This presentation never changes eligibility, price or
+certificate consumption, which remain with Commerce and Waste owners.
+
+Purchase history prefers Digital's `productName` projected from the immutable
+purchase promise. It does not fetch today's catalogue or rewrite original rights.
+The original Product reference remains secondary; absent retained names use a
+generic heading. Merchant codes remain explicitly labelled references.
+`PurchaseHistory.test.tsx` protects retained-name precedence, reference visibility
+and owner-only history requests. Certificate category codes are formatted as
+readable labels; carbon rows use a short distinguishing reference with the full
+audit identity in expandable details. These are presentation only: command codes,
+eligibility, balances and synthetic markers stay unchanged.
+
 ### Pending Reference Helper
 
 `pendingReferences.ts` owns only tab-local recovery hints. API:
@@ -78,6 +94,15 @@ references never grant access: Checkout revalidates the current actor and exact
 Cart/Order binding. Only an authoritative completed receipt clears the reference;
 absence or an uncertain outcome does not permit a new purchase.
 
+After an original checkout command returns scope-qualified `COMPENSATED` with
+matching order/cart identities, the customer may explicitly select **Start a new
+purchase**. This retires only that exact saved reference and resets the draft/key;
+it does not place, refund or resume a purchase. The retired reference remains in
+the visible Previous purchase attempts section for the current mounted journey
+(not a replacement for backend audit history). Unknown, foreign and
+`COMPENSATION_REQUIRED` outcomes cannot unlock this action. A fresh status check
+revokes earlier eligibility while pending; obsolete-session replies are ignored.
+
 Certificate-only coupons omit Wallet and Payment fields. Combined purchases send
 both the reward payment and `couponSelections[entryCode][unitIndex]`. The shared
 purchase control requires an explicit owner-projected coupon consideration type;
@@ -126,6 +151,24 @@ fixtures exercise these request and state contracts. They are isolated UI tests,
 not actual payment, persistence, device or installed-runtime acceptance.
 
 ## Enterprise Sessions And Account
+
+Enterprise sign-in, cookie restore and accepted membership switching confirm the
+original Employee bearer through Profile's existing `/identity/scopes/me` self-read.
+Its `enterprise: { code, displayName }` must match the selected signed Enterprise;
+missing or foreign projection evidence refuses session admission. `displayName`
+comes only from canonical Profile Enterprise data. Profile validates its configured
+name bound; browser admission checks nonempty/control-free display shape without
+a copied name maximum. A null name displays
+**Enterprise account**, with the exact reference retained separately in the account
+heading and header accessible name/tooltip. Private native codes are never
+humanized into business names. Name evidence stays in memory and refreshes on
+restore/switch; only the existing code hint goes into session storage. No generic
+`/enterprise/get`, directory grants, browser JWT decoding or Customer conversion
+is needed. Profile owns current identity, membership and placement validation;
+Circa owns presentation only. `api.enterpriseSession`, `EnterpriseAccount` and
+`CircaApp` focused tests cover canonical/null names and fresh context replacement.
+Native browser acceptance requires main's coordinated source adoption; unit checks
+do not establish installed runtime behavior.
 
 Customer and Enterprise account navigation includes `Create bundle` at
 `/account/bundles`; Customer mobile uses the same account renderer with
@@ -718,3 +761,31 @@ projection, default-off, exact command/receipt, explicit review, transient secre
 and uncertain one-shot fixtures. Isolated fixtures passed; connected delivery, code
 expiry, actual Customer scope, suppression, cross-channel and mobile acceptance
 remain joint-session gates.
+
+## Bounded browser regression follow-up (23 October 2026)
+
+Findings 3, 4 and 6 from the 21 October acceptance record were reproduced in
+source. Item ownership and catalogue detail now distinguish contributor rewards
+from separately selected realized, available bundle credits. New ownership copy
+keys avoid reusing the obsolete attached-carbon transfer wording.
+
+Asset quick/full detail promotes the digital certificate reference, ownership
+status, recorded review decision/date, lifecycle events and assessment availability
+above the detail tabs. These are the existing owner projection, not an inferred
+certificate-validity or completed-recycling decision. Full detail links to the
+assessment evidence; source submission and review history remain in their tabs.
+Complete custody/recycling milestones are not supplied by this item-detail API.
+
+`WalletHistory` provides Previous/Next navigation in personal and Enterprise
+wallets, ten returned rows per display page. This is only a presentation chunk;
+backend limits/defaults remain in Loyalty. A new snapshot resets the display page.
+Both wallet APIs return bounded entries without total/cursor/continuation, so the
+UI explicitly says older transactions may be omitted. Full ledger continuation
+requires a Loyalty-owned API contract and is not closed by this frontend change.
+
+Focused DOM tests cover evidence visibility, reward copy, paging boundaries,
+empty snapshots and refresh reset. On 23 October, `npm run verify` passed
+typecheck, 520 tests across 60 files and production build (chunk-size warning).
+Browser verification is blocked by the user's Work settings; do not bypass them.
+Live acceptance still needs desktop/mobile quick/full certificate views, published
+copy, assessment navigation and wallets with more than ten returned transactions.

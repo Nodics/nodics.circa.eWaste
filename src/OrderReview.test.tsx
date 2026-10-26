@@ -10,11 +10,12 @@ vi.mock("./api", () => ({
   commandKey: () => "fixture-key",
 }));
 const session = { token: "fixture-token", loginId: "fixture@example.test" };
+const eligibility = { eligible: true, resolutions: ["DISPUTE"], reasonCode: "MANUAL_REVIEW" };
 afterEach(() => vi.resetAllMocks());
 it("requires successful history inspection before submitting a concern", async () => {
   vi.mocked(request).mockRejectedValueOnce(new Error("Denied"));
   const user = userEvent.setup();
-  render(<OrderReview code="order-1" session={session} />);
+  render(<OrderReview code="order-1" session={session} eligibility={eligibility} />);
   await user.click(
     screen.getByRole("button", { name: "Request order review" }),
   );
@@ -30,9 +31,9 @@ it("requires successful history inspection before submitting a concern", async (
 });
 it("inspects an uncertain write and explicitly resumes the frozen original request", async () => {
   vi.mocked(request)
-    .mockResolvedValueOnce({ cases: [] })
+    .mockResolvedValueOnce({ cases: [], reviewEligibility: eligibility })
     .mockRejectedValueOnce(new Error("Timeout"))
-    .mockResolvedValueOnce({ cases: [] })
+    .mockResolvedValueOnce({ cases: [], reviewEligibility: eligibility })
     .mockResolvedValueOnce({
       code: "case-1",
       orderCode: "order-1",
@@ -40,9 +41,9 @@ it("inspects an uncertain write and explicitly resumes the frozen original reque
       status: "REQUESTED",
       requestedResolution: "DISPUTE",
     })
-    .mockResolvedValueOnce({ cases: [] });
+    .mockResolvedValueOnce({ cases: [], reviewEligibility: eligibility });
   const user = userEvent.setup();
-  render(<OrderReview code="order-1" session={session} />);
+  render(<OrderReview code="order-1" session={session} eligibility={eligibility} />);
   await user.click(
     screen.getByRole("button", { name: "Request order review" }),
   );
@@ -84,13 +85,14 @@ it("discards a prior customer's late review history after a session change", asy
       }),
   );
   const user = userEvent.setup();
-  const view = render(<OrderReview code="order-1" session={session} />);
+  const view = render(<OrderReview code="order-1" session={session} eligibility={eligibility} />);
   await user.click(
     screen.getByRole("button", { name: "Request order review" }),
   );
   view.rerender(
     <OrderReview
       code="order-1"
+      eligibility={eligibility}
       session={{ token: "other", loginId: "other@example.test" }}
     />,
   );
@@ -106,4 +108,28 @@ it("discards a prior customer's late review history after a session change", asy
   });
   await waitFor(() => expect(screen.queryByText(/private-case/)).toBeNull());
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+it("does not advertise review without affirmative owner eligibility", () => {
+  const view = render(<OrderReview code="order-1" session={session} />);
+  expect(screen.queryByText("Request order review")).toBeNull();
+  view.rerender(<OrderReview code="order-1" session={session} eligibility={{ eligible: false, resolutions: [], reasonCode: "DIGITAL_COUPON_PURCHASE_FINAL" }} />);
+  expect(screen.queryByText("Request order review")).toBeNull();
+  expect(request).not.toHaveBeenCalled();
+});
+it("uses fresh owner resolutions and cannot offer refund or cancellation for dispute-only review", async () => {
+  vi.mocked(request).mockResolvedValueOnce({ cases: [], reviewEligibility: eligibility });
+  render(<OrderReview code="order-1" session={session} eligibility={eligibility} />);
+  await userEvent.click(screen.getByText("Request order review"));
+  await screen.findByRole("option", { name: "Purchase dispute" });
+  expect(screen.queryByRole("option", { name: "Refund review" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "Cancellation review" })).toBeNull();
+});
+it("fresh finality overrides a stale eligible history row without submitting a review", async () => {
+  vi.mocked(request).mockResolvedValueOnce({ cases: [], reviewEligibility: { eligible: false, resolutions: [], reasonCode: "DIGITAL_COUPON_PURCHASE_FINAL" } });
+  render(<OrderReview code="order-1" session={session} eligibility={eligibility} />);
+  await userEvent.click(screen.getByText("Request order review"));
+  await screen.findByText("No review requests are recorded for this purchase.");
+  expect(screen.queryAllByRole("option")).toHaveLength(0);
+  expect(screen.getByText("Confirm review request")).toBeDisabled();
+  expect(request).toHaveBeenCalledTimes(1);
 });

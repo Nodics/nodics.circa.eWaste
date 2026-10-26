@@ -38,6 +38,10 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_CIRCA_PROFILE_TARGET ?? "http://127.0.0.1:4300",
           changeOrigin: true,
         },
+        "/nodics/backoffice": {
+          target: env.VITE_CIRCA_PROFILE_TARGET ?? "http://127.0.0.1:4300",
+          changeOrigin: true,
+        },
         "/nodics/cms": {
           target: env.VITE_CIRCA_WCMS_ONLINE_TARGET ?? "http://127.0.0.1:4314",
           changeOrigin: true,

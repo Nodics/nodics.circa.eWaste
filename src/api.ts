@@ -395,12 +395,13 @@ export type Offer = {
   kind: "ASSET" | "COUPON";
   description?: string;
   expiresAt?: string;
+  expiry?: { mode: "FIXED"; at: string } | { mode: "NONE" } | null;
   assetCode?: string;
   revision: number | string;
 };
 export type Market = { assets: Offer[]; coupons: Offer[] };
 /** EMPLOYEE is transient personal-participation proof, never an admitted Circa session. */
-export type Session = { token: string; loginId: string; kind?: "CUSTOMER" | "EMPLOYEE" | "ENTERPRISE"; enterpriseCode?: string };
+export type Session = { token: string; loginId: string; kind?: "CUSTOMER" | "EMPLOYEE" | "ENTERPRISE"; enterpriseCode?: string; enterpriseDisplayName?: string | null };
 export type EnterpriseSession = Session & { kind: "ENTERPRISE"; enterpriseCode: string };
 export function isEnterpriseSession(session?: Session | null): session is EnterpriseSession {
   return session?.kind === "ENTERPRISE";
@@ -504,9 +505,11 @@ export async function request<T>(
       method,
       signal: controller.signal,
       credentials: "same-origin",
+      ...(path === "/nodics/backoffice/v0/bootstrap/public" ? { cache: "no-store" as const } : {}),
       ...(employeeBrowser ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: {
         "Content-Type": "application/json",
+        ...(path === "/nodics/backoffice/v0/bootstrap/public" ? { "x-nodics-client-contract-version": "1" } : {}),
         "x-enterprise-code": enterpriseCode,
         ...(idempotencyKey !== undefined ? { "Idempotency-Key": idempotencyKey } : {}),
         ...(csrf ? { "x-csrf-token": csrf } : {}),
@@ -678,7 +681,19 @@ async function confirmEnterpriseSession(value: unknown, enterpriseCode: string):
   const loginId = sessionText(scopes.principalCode, 320);
   if (auth.loginId !== undefined && auth.loginId !== loginId)
     throw new ApiError("Profile returned a different Employee identity.");
-  return Object.freeze({ ...provisional, loginId });
+  const enterprise = sessionRecord(scopes.enterprise);
+  if (enterprise.code !== enterpriseCode)
+    throw new ApiError("Profile returned a different Enterprise context.");
+  // Profile validates its configured business-name bound; the browser checks display shape only.
+  const name = enterprise.displayName;
+  if (name !== null && (typeof name !== "string" || !name.trim() || /[\u0000-\u001f\u007f]/.test(name)))
+    throw new ApiError("Profile session evidence could not be confirmed.");
+  const enterpriseDisplayName = typeof name === "string" ? name.trim() : null;
+  return Object.freeze({ ...provisional, loginId, enterpriseDisplayName });
+}
+/** Presentation only: a missing canonical name never turns a private reference into a business name. */
+export function enterpriseNameOf(session: EnterpriseSession): string {
+  return session.enterpriseDisplayName || "Enterprise account";
 }
 /** Fresh PASSWORD sign-in, distinct from personal Employee-to-Customer participation. */
 export async function authenticateEnterpriseSession(enterpriseCode: string, loginId: string, password: string): Promise<EnterpriseSession> {
@@ -691,6 +706,21 @@ export async function authenticateEnterpriseSession(enterpriseCode: string, logi
   return session;
 }
 export type EnterpriseMembership = { code: string; revision: number; enterpriseCode: string; enterpriseName: string };
+
+/** Reads Profile-owned public availability, never interpreting a denied API as disabled. */
+export async function enterpriseMembershipAvailability(signal?: AbortSignal) {
+  const bootstrap = sessionRecord(await request("/nodics/backoffice/v0/bootstrap/public", null,
+    undefined, "GET", { signal }));
+  const owners = sessionRecord(bootstrap.featureAvailability);
+  const profile = sessionRecord(owners.profile);
+  const features = sessionRecord(profile.features);
+  if (profile.contractVersion !== 1 ||
+      typeof features.enterpriseMembershipDiscovery !== "boolean" ||
+      typeof features.enterpriseMembershipSwitch !== "boolean" ||
+      features.enterpriseMembershipSwitch && !features.enterpriseMembershipDiscovery)
+    throw new ApiError("Enterprise membership availability could not be confirmed.");
+  return { discovery: features.enterpriseMembershipDiscovery, switching: features.enterpriseMembershipSwitch };
+}
 /** Only Profile-projected, accepted SWITCH choices are rendered; no local role or invitation authority. */
 export async function enterpriseMemberships(session: EnterpriseSession, signal?: AbortSignal): Promise<EnterpriseMembership[]> {
   const workspace = sessionRecord(await request("/nodics/profile/v0/enterprise-memberships/workspace", session, undefined, "GET", { signal }));

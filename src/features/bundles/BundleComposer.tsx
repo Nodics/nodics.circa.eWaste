@@ -10,6 +10,7 @@ import {
   Tag,
 } from "lucide-react";
 import { commandKey, type Session } from "../../api";
+import { carbonLabel } from "../../holdingPresentation";
 import {
   CertificatePicker,
   type CertificateSelection,
@@ -415,8 +416,8 @@ function Composer({
             <ul className="bundle-composer-selected">
               {carbon.map((row) => (
                 <li key={row.lot.lotCode}>
-                  {row.lot.lotCode}: {row.quantity || "No quantity"}{" "}
-                  {row.lot.unitOfMeasure}
+                  {carbonLabel(row.lot.lotCode)}:{" "}
+                  {row.quantity || "No quantity"} {row.lot.unitOfMeasure}
                 </li>
               ))}
             </ul>
@@ -674,7 +675,7 @@ function CarbonPicker({
                 }
               />
               <span>
-                {lot.lotCode}
+                {carbonLabel(lot.lotCode)}
                 <small>
                   {lot.state === "REALIZED" ? "Realized" : "Prospective"} /{" "}
                   {lot.available} {lot.unitOfMeasure} available
@@ -682,11 +683,16 @@ function CarbonPicker({
                 </small>
               </span>
             </label>
+            <details>
+              <summary>Holding reference</summary>
+              <code>{lot.lotCode}</code>
+            </details>
             {selected && (
               <label>
-                Quantity {lot.lotCode}
+                Quantity · {carbonLabel(lot.lotCode)}
                 <input
                   inputMode="decimal"
+                  aria-label={"Quantity " + lot.lotCode}
                   value={selected.quantity}
                   onChange={(event) =>
                     onChange(

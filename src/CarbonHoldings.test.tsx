@@ -51,7 +51,8 @@ it("renders separate exact lot quantities and provenance without aggregating inc
     ...lot, lotCode: "LOT-OTHER-UNIT", unitOfMeasure: "kgCO2e", available: "0.000", synthetic: true,
   }]) : materials());
   render(<CarbonHoldings session={session} />);
-  const row = (await screen.findByRole("heading", { name: "LOT-ISSUED" })).closest("article")!;
+  const row = (await screen.findByRole("heading", { name: "Carbon holding · T-ISSUED" })).closest("article")!;
+  expect(within(row).getByText("LOT-ISSUED", { selector: "code" })).toBeInTheDocument();
   for (const [label, quantity] of [["Prospective", "2.125"], ["Realized", "5.000"], ["Available (unreserved)", "3.750"],
     ["Reserved", "1.250"], ["Total (not spendable)", "7.125"]]) {
     expect(within(row).getByText(label, { selector: "dt" }).parentElement).toHaveTextContent(quantity + " tCO2e");
@@ -63,7 +64,8 @@ it("renders separate exact lot quantities and provenance without aggregating inc
   expect(within(row).getByText("Eligibility not checked")).toBeInTheDocument();
   expect(within(row).getByText("Held for bundle completion")).toBeInTheDocument();
   expect(within(row).queryByRole("button", { name: /sell|transfer|retire/i })).toBeNull();
-  const other = screen.getByRole("heading", { name: "LOT-OTHER-UNIT" }).closest("article")!;
+  const other = screen.getByRole("heading", { name: "Carbon holding · HER-UNIT" }).closest("article")!;
+  expect(within(other).getByText("LOT-OTHER-UNIT", { selector: "code" })).toBeInTheDocument();
   expect(within(other).getByText("Synthetic record")).toBeInTheDocument();
   expect(within(other).getByText("Available (unreserved)").parentElement).toHaveTextContent("0.000 kgCO2e");
 });
@@ -73,7 +75,8 @@ it("keeps prospective-only records nonspendable without inventing registry eligi
     ...lot, state: "PROSPECTIVE", total: "7.125", prospective: "7.125", realized: "0.000", reserved: "0.000", available: "0.000",
   }]) : materials());
   render(<CarbonHoldings session={session} />);
-  const row = (await screen.findByRole("heading", { name: "LOT-ISSUED" })).closest("article")!;
+  const row = (await screen.findByRole("heading", { name: "Carbon holding · T-ISSUED" })).closest("article")!;
+  expect(within(row).getByText("LOT-ISSUED", { selector: "code" })).toBeInTheDocument();
   expect(within(row).getByText("Available (unreserved)").parentElement).toHaveTextContent("0.000");
   expect(within(row).getByText("Total (not spendable)")).toBeInTheDocument();
   expect(within(row).getByText("Eligibility not checked")).toBeInTheDocument();
@@ -84,7 +87,8 @@ it("renders owner-projected precision without a frontend scale ceiling", async (
     ? page([{ ...lot, scale: 9, available: "3.750000001" }])
     : materials());
   render(<CarbonHoldings session={session} />);
-  const row = (await screen.findByRole("heading", { name: "LOT-ISSUED" })).closest("article")!;
+  const row = (await screen.findByRole("heading", { name: "Carbon holding · T-ISSUED" })).closest("article")!;
+  expect(within(row).getByText("LOT-ISSUED", { selector: "code" })).toBeInTheDocument();
   expect(within(row).getByText("Available (unreserved)").parentElement).toHaveTextContent("3.750000001 tCO2e");
 });
 
