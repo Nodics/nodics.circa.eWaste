@@ -63,6 +63,11 @@ header rather than changing identity to the merchant. Backend capabilities,
 permissions and qualified providers must be configured independently of this
 frontend transport setting. `proxyRouting.test.ts` protects the route boundary.
 
+The Local proxy targets Process & Engagement on port 4330 for Engagement and
+Communication, and Waste & Location on port 4370 for Location. These are backend
+targets only: the Circa frontend stays on port 3600. Explicit `VITE_CIRCA_*_TARGET`
+overrides remain available; Docker retains its separate topology.
+
 ## Sample accounts
 
 The local sample password is `CircaDemo!2026` for `customer@circa.local`,
@@ -95,7 +100,7 @@ and use status inspection, not another payment. Changing session discards the
 prior private selection. Loyalty authority, program selection and installed
 permissions remain deployment prerequisites, not frontend grants.
 `VITE_CIRCA_LOYALTY_TARGET` routes local participant calls to the Loyalty runtime
-(local topology port 4360; Docker proxy port 5360). It changes transport only,
+(local Commerce & Loyalty host port 4350; Docker proxy port 5360). It changes transport only,
 not any business default, permission or funding setting. Renderer unit checks
 do not establish live transfer acceptance.
 
@@ -189,7 +194,8 @@ Project policies and illustrative factors remain layered backend configuration.
 ## Shared collection-centre map
 
 The customer map reads Location's public `COLLECTION_CENTRE_MAP` configuration.
-Axis administers the same record. Provider/style, viewport, category labels and
+It requests the CIRCA surface. The Circa module scopes its Dubai viewport to this
+usage and inherits the project provider. Axis can edit the Circa view separately. Provider/style, viewport, category labels and
 pin colors, visible controls and wheel zoom behavior refresh while the page is
 open (15 seconds by default) and on window focus. Mapbox and Leaflet adapters
 consume the backend descriptors; fallback is allowed only by backend policy.
@@ -220,8 +226,8 @@ filtering, mobile layout and directions-coordinate validation.
 ## Backend ownership
 
 Reusable domain APIs are provided by the single eWaste accelerator at
-`/nodics/eWaste/v0`. Circa public composition, registration and contact adapters
-are provided by the customer backend at `/nodics/eWaste/v0`. Keep those
+`/nodics/eWaste/v0`. Profile owns customer registration and identity at `/nodics/profile/v0`;
+Communication and Engagement own delivery and contact intake. Keep those
 boundaries explicit in api.ts; the frontend application name is unchanged.
 
 ## Submission acceptance
@@ -235,7 +241,9 @@ only in the ignored backend environment; a public HTTPS launch URL is still need
 
 `CustomerAuthentication` is the single Web and Telegram sign-in/registration
 component. Both use email/password sign-in and name/email/password registration
-through Profile. Host shells call the eWaste channel-entry/link contract and resume after
+through Profile. Anonymous signup uses its opt-in `/customer/browser/register`
+entry with exact-origin and distributed rate checks. Account creation does not
+claim verified email ownership. Host shells call the eWaste channel-entry/link contract and resume after
 authentication. The accelerator selects seamless linked sign-in or the shared
 form. The browser completes one-use handoffs directly with Profile, which retains
 its secure cookies; application codes and sign-in policy are not hardcoded in
@@ -243,6 +251,9 @@ channel shells. There is no channel email lookup or OTP process.
 WhatsApp should reuse this component through its future secure Web handoff; its
 channel adapter remains deferred. A successful registration followed by an
 interrupted sign-in retries authentication without creating another customer.
+Generic owner failures retain their diagnostic code. Reads offer refresh; an
+uncertain write asks the customer to inspect its saved status before retrying.
+The transport does not automatically repeat commands.
 
 ### Mobile Centres tab
 

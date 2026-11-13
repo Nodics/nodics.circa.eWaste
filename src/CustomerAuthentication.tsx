@@ -70,7 +70,7 @@ export function CustomerAuthentication({
           try {
             if (register) {
               const result = await request<{ registered?: unknown }>(
-                "/nodics/profile/v0/customer/registrations",
+                "/nodics/profile/v0/customer/browser/register",
                 null,
                 {
                   email: loginId,

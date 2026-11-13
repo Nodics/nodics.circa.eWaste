@@ -18,20 +18,20 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/nodics/loyaltyApi": {
-          target: env.VITE_CIRCA_LOYALTY_TARGET ?? "http://127.0.0.1:4360",
+          target: env.VITE_CIRCA_LOYALTY_TARGET ?? "http://127.0.0.1:4350",
           changeOrigin: true,
         },
         "/nodics/engagement": {
-          target: env.VITE_CIRCA_ENGAGEMENT_TARGET ?? "http://127.0.0.1:4340",
+          target: env.VITE_CIRCA_ENGAGEMENT_TARGET ?? "http://127.0.0.1:4330",
           changeOrigin: true,
         },
         "/nodics/commsApi": {
           target:
-            env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4340",
+            env.VITE_CIRCA_COMMUNICATION_TARGET ?? "http://127.0.0.1:4330",
           changeOrigin: true,
         },
         "/nodics/locationMap": {
-          target: env.VITE_CIRCA_LOCATION_TARGET ?? "http://127.0.0.1:4380",
+          target: env.VITE_CIRCA_LOCATION_TARGET ?? "http://127.0.0.1:4370",
           changeOrigin: true,
         },
         "/nodics/profile": {

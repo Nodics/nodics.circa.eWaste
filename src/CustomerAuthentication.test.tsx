@@ -61,7 +61,7 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(
-      api.mock.calls.filter(([url]) => url.endsWith("/registrations")),
+      api.mock.calls.filter(([url]) => url.endsWith("/browser/register")),
     ).toHaveLength(1);
   });
   it("uses the same Profile email/password sign-in with no lookup or OTP step", async () => {
@@ -100,7 +100,7 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(api.mock.calls[0]).toEqual([
-      "/nodics/profile/v0/customer/registrations",
+      "/nodics/profile/v0/customer/browser/register",
       null,
       { email: "customer@example.com", name: "Asha", password },
     ]);
@@ -139,7 +139,7 @@ describe("shared customer authentication", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
     expect(
-      api.mock.calls.filter(([url]) => url.endsWith("/registrations")),
+      api.mock.calls.filter(([url]) => url.endsWith("/browser/register")),
     ).toHaveLength(1);
   });
   it("blocks duplicate submissions and mode changes while authentication is pending", async () => {

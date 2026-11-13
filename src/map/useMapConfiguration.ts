@@ -46,7 +46,7 @@ export function useMapConfiguration() {
       controller.signal.addEventListener('abort', abort);
       const deadline = setTimeout(abort, 10000);
       try {
-        const response = await fetch('/nodics/locationMap/v0/location/maps/configurations/public?usageCode=COLLECTION_CENTRE_MAP', { headers: { 'x-enterprise-code': 'default' }, cache: 'no-store', signal: timeout.signal });
+        const response = await fetch('/nodics/locationMap/v0/location/maps/configurations/public?usageCode=COLLECTION_CENTRE_MAP&surfaceCode=CIRCA', { headers: { 'x-enterprise-code': 'default' }, cache: 'no-store', signal: timeout.signal });
         if (!response.ok) throw Error('Map settings are temporarily unavailable.');
         const result = unwrap<SharedMapConfiguration>(await response.json());
         const presentation = parseMapPresentation(result.presentation), interaction = parseMapInteraction(result.interaction);

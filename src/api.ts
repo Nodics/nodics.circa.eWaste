@@ -551,7 +551,11 @@ export async function request<T>(
     String(envelope.code || "").startsWith("ERR_")
   )
     throw new ApiError(
-      envelope.message ||
+      envelope.code === "ERR_SYS_00000"
+        ? ["GET", "HEAD"].includes(method.toUpperCase())
+          ? "This information is temporarily unavailable. Refresh to try again."
+          : "We couldn’t confirm this request. Check the latest status before trying again."
+        : envelope.message ||
         `Request failed (${response.status}). Please try again.`,
       envelope.code,
     );

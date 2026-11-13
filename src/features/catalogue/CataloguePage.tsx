@@ -114,12 +114,14 @@ function CatalogueFilters({
           </>
         ) : (
           <>
-            <FilterSelect
-              title="Partner"
-              value={draft.issuer}
-              options={facets.issuers}
-              onChange={(issuer) => setDraft({ ...draft, issuer })}
-            />
+            {facets.issuers.length > 0 && (
+              <FilterSelect
+                title="Partner"
+                value={draft.issuer}
+                options={facets.issuers}
+                onChange={(issuer) => setDraft({ ...draft, issuer })}
+              />
+            )}
             <label>
               Valid through
               <input

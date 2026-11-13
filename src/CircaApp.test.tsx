@@ -248,6 +248,47 @@ async function signIn() {
   return user;
 }
 describe("connected Circa journeys", () => {
+  it("waits for browser session restoration before prompting for sign-in", async () => {
+    history.replaceState({}, "", "/account");
+    let finishRestore: (value: null) => void = () => undefined;
+    vi.spyOn(sessionApi, "restoreSession").mockReturnValue(
+      new Promise((resolve) => {
+        finishRestore = resolve;
+      }),
+    );
+    render(<CircaApp />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Checking your account");
+    expect(screen.queryByRole("button", { name: "Sign in or register" })).toBeNull();
+    finishRestore(null);
+    expect(await screen.findByRole("button", { name: "Sign in or register" })).toBeVisible();
+  });
+
+  it("provides a focusable target for the keyboard skip link", async () => {
+    render(<CircaApp />);
+
+    const skipLink = await screen.findByRole("link", { name: "Skip to content" });
+    expect(skipLink).toHaveAttribute("href", "#main-content");
+    const mainContent = document.getElementById("main-content");
+    expect(mainContent).toHaveAttribute("tabindex", "-1");
+    mainContent?.focus();
+    expect(mainContent).toHaveFocus();
+  });
+
+  it("moves keyboard focus to a changed page without stealing filter-only focus", async () => {
+    render(<CircaApp />);
+    const user = userEvent.setup();
+    const privacy = await screen.findByRole("link", { name: "Privacy" });
+    privacy.focus();
+    await user.keyboard("{Enter}");
+    expect(document.getElementById("main-content")).toHaveFocus();
+    const terms = screen.getByRole("link", { name: "Terms" });
+    terms.focus();
+    history.pushState({}, "", "/privacy?view=policy");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(terms).toHaveFocus();
+  });
+
   it("keeps the complete Enterprise name accessible alongside header controls", async () => {
     const enterpriseCode = "native-private-920001";
     const enterpriseDisplayName = "GreenPerks Retail and Community Services";

@@ -249,3 +249,23 @@ it("customer identity loss notifies the shell and never exposes the backend mess
   expect(result.current.error).not.toContain("Customer identity is unavailable");
   expect(result.current.busy).toBe("");
 });
+
+it("a new item after a completed submission keeps retry available when location is denied", async () => {
+  draft = { ...draft, submissionStatus: "APPROVED" };
+  vi.mocked(host.permission).mockResolvedValue("denied");
+  vi.mocked(host.capture).mockRejectedValue(new Error("Location access is blocked."));
+  const { result } = renderHook(() => useSubmissionJourney({ session, open: true, host, onSubmitted: vi.fn() }));
+  await waitFor(() => expect(result.current.submitted).toBe(true));
+  expect(host.permission).not.toHaveBeenCalled();
+  await act(async () => result.current.startNew());
+  await waitFor(() => expect(result.current.error).toContain("Location access is blocked"));
+  expect(result.current.permission).toBe("denied");
+  expect(result.current.busy).toBe("");
+  expect(result.current.draft).toBeNull();
+  expect(calls.some(path => /prepare|confirm/.test(path))).toBe(false);
+  vi.mocked(host.permission).mockResolvedValue("granted");
+  vi.mocked(host.capture).mockResolvedValue({latitude:25, longitude:55, accuracy:5, capturedAt:Date.now()});
+  await act(async () => result.current.checkLocation());
+  expect(result.current.permission).toBe("granted");
+  expect(result.current.arrival?.nextAction).toBe("PHOTO");
+});

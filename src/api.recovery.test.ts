@@ -49,3 +49,18 @@ it("owner validation codes survive transport handling and keep the customer corr
     message: "Check arrival again",
   });
 });
+it("generic owner failures offer read recovery without inviting an uncertain command replay", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+    JSON.stringify({ code: "ERR_SYS_00000", message: "Failed due to some internal error" }),
+    { status: 500 },
+  ));
+  await expect(request("/test")).rejects.toMatchObject({
+    code: "ERR_SYS_00000",
+    message: "This information is temporarily unavailable. Refresh to try again.",
+  });
+  await expect(request("/test", null, { idempotencyKey: "retained-command" })).rejects.toMatchObject({
+    code: "ERR_SYS_00000",
+    message: "We couldn’t confirm this request. Check the latest status before trying again.",
+  });
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

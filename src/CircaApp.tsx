@@ -670,6 +670,7 @@ export function TransactionPage({
 export function CircaApp() {
   const [path, setPath] = useState(window.location.pathname),
     [session, setSession] = useState<Session | null>(readSession),
+    [sessionRestoring, setSessionRestoring] = useState(true),
     [experience, setExperience] = useState<Experience | null>(null),
     [experienceError, setExperienceError] = useState(""),
     [sessionError, setSessionError] = useState(""),
@@ -686,6 +687,16 @@ export function CircaApp() {
     [selectedCentre, setSelectedCentre] = useState<Centre | null>(null),
     [resumeCode, setResumeCode] = useState<string>(),
     [refresh, setRefresh] = useState(0);
+  const previousPath = useRef(path);
+  useEffect(() => {
+    const changed = previousPath.current !== path;
+    previousPath.current = path;
+    // Move keyboard and assistive-technology users to the new page. Filter-only
+    // updates and explicit section anchors retain their own focus behavior.
+    if (changed && !window.location.hash) {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    }
+  }, [path]);
   const cms = usePublishedPage(
     path === "/privacy" || path === "/terms" ? path : "/",
     refresh,
@@ -707,6 +718,9 @@ export function CircaApp() {
             "Your session could not be restored. Please sign in again.",
           );
         }
+      })
+      .finally(() => {
+        if (active) setSessionRestoring(false);
       });
     return () => {
       active = false;
@@ -761,7 +775,7 @@ export function CircaApp() {
       )
         return;
       const url = new URL(link.href);
-      if (url.origin !== location.origin) return;
+      if (url.origin !== location.origin || url.hash === "#main-content") return;
       e.preventDefault();
       history.pushState({}, "", url.pathname + url.search + url.hash);
       window.dispatchEvent(new PopStateEvent("popstate"));
@@ -913,7 +927,13 @@ export function CircaApp() {
     setAssistant(true);
   }
   let page: ReactNode;
-  if (!publicPage && !session)
+  if (!publicPage && !session && sessionRestoring)
+    page = (
+      <main className="container protected-page" aria-busy="true">
+        <p role="status">Checking your account…</p>
+      </main>
+    );
+  else if (!publicPage && !session)
     page = (
       <main className="container protected-page">
         <Leaf size={42} />
@@ -1196,7 +1216,9 @@ export function CircaApp() {
           </div>
         </div>
       </header>
-      <div id="main-content">{page}</div>
+      <div id="main-content" tabIndex={-1}>
+        {page}
+      </div>
       {sessionError && <div className="container"><ErrorNotice error={sessionError} /></div>}
       {experienceError && isEnterpriseSession(session) && <div className="container"><ErrorNotice error={experienceError} /></div>}
       <footer>

@@ -1,7 +1,7 @@
 FROM node:24.20.0-bookworm-slim AS build
 ARG STOREFRONT_ORIGIN=http://localhost:6300
 ARG STOREFRONT_SITE=agoraApparelSite
-ARG STOREFRONT_STORE=agoraMainStore
+ARG STOREFRONT_STORE=agoraApparelStore
 ARG STOREFRONT_DOMAIN=apparel
 ARG STOREFRONT_CURRENCY=USD
 ENV VITE_CUSTOMER_CSRF_COOKIE_NAME=nodics_docker_customer_csrf \

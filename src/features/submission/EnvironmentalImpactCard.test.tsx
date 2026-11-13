@@ -51,7 +51,7 @@ it("shows potential savings, carbon equivalent and sourced range evidence withou
   expect(screen.getByText('Potential CO₂e savings')).toBeInTheDocument();
   expect(screen.getByText(/Environmental Protection Agency’s Waste Reduction Model/)).toBeInTheDocument();
   expect(screen.queryByText(/EPA_WARM_ELECTRONICS|Factor set:|Factor dataset:/)).not.toBeInTheDocument();
-  expect(screen.getByText('0.002381 tCO₂e')).toBeInTheDocument();
+  expect(screen.getAllByText('0.00238 tCO₂e')).toHaveLength(2);
   expect(screen.getByText(/estimated range midpoint/)).toBeInTheDocument();
   expect(screen.getByText(/Estimated total weight range: 1–3 kg/)).toBeInTheDocument();
   expect(screen.queryByText(/Illustrative|demo/i)).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ it("keeps small carbon equivalents readable and hides internal reference identif
  render(<EnvironmentalImpactCard assessment={{...assessment,status:"ESTIMATED",
  methodology:{...assessment.methodology,isMock:false,assessmentBasis:"REFERENCE_SCENARIO",formulaVersion:"WARM_BASELINE_MINUS_TREATMENT_V1",providerCode:"EPA_WARM_ELECTRONICS",referenceScenarioExplanation:"Mixed-electronics reference comparison; composition may differ."},
  factors:{savingsMinKgCO2e:.253532,savingsMaxKgCO2e:.811301,factorSetVersion:"EPA_WARM_V16_DEC2023"},
- indicators:[{...assessment.indicators[0],status:"ESTIMATED",value:".532417"},{...assessment.indicators[0],key:"carbonEquivalent",label:"Carbon equivalent",unitOfMeasure:"T_CO2E",status:"ESTIMATED",value:"0.000532"}]}}/>);
+ indicators:[{...assessment.indicators[0],status:"ESTIMATED",value:".532417"},{...assessment.indicators[0],key:"carbonEquivalent",label:"Carbon equivalent",unitOfMeasure:"T_CO2E",status:"ESTIMATED",value:"0.0005324179838238"}]}}/>);
  expect(screen.getByText("0.254–0.811")).toBeInTheDocument();
  expect(screen.getAllByText("0.000532 tCO₂e")).toHaveLength(2);
  expect(screen.queryByText(/WARM_BASELINE|EPA_WARM_|Weight basis:/)).not.toBeInTheDocument();

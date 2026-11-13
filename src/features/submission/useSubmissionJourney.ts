@@ -289,6 +289,11 @@ export function useSubmissionJourney({
     return run("Finding collection centres near you…", async (active) => {
       const d = current.current;
       if (!active()) return;
+      // A completed item can resume without reading host permissions. Refresh
+      // them before a new attempt so a failed capture retains a retry action.
+      const permission = await host.permission().catch(() => "unknown" as const);
+      if (!active()) return;
+      setPermission(permission);
       const result = await locate(d, active, choice, Boolean(choice));
       if (active())
         setReady(

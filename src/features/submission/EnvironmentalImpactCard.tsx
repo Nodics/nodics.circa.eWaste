@@ -110,7 +110,7 @@ export function EnvironmentalImpactCard({
         <div className="environment-credit">
           <span>Carbon equivalent</span>
           <strong>
-            {indicators.find((item) => item.key === "carbonEquivalent")?.value}{" "}
+            {format(indicators.find((item) => item.key === "carbonEquivalent")!.value!)}{" "}
             tCO₂e
           </strong>
         </div>
